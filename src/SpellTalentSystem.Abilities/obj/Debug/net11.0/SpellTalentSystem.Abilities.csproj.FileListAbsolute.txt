@@ -10,3 +10,4 @@ D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Abilities\obj\Debug\net11.0
 D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Abilities\obj\Debug\net11.0\SpellTalentSystem.Abilities.pdb
 D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Abilities\obj\Debug\net11.0\ref\SpellTalentSystem.Abilities.dll
 D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Abilities\obj\Debug\net11.0\SpellTal.03A51CF6.Up2Date
+d:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Abilities\obj\Debug\net11.0\SpellTalentSystem.Abilities.sourcelink.json

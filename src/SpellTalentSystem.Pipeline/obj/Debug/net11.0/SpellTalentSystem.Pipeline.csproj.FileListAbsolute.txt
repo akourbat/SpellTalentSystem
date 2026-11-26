@@ -13,3 +13,4 @@ D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\
 D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\refint\SpellTalentSystem.Pipeline.dll
 D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.pdb
 D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\ref\SpellTalentSystem.Pipeline.dll
+d:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.sourcelink.json

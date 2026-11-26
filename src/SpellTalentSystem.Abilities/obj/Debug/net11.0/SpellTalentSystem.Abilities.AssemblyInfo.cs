@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SpellTalentSystem.Abilities")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d3dcc1eb7a65982d521a43035dc6ba9fcfaf75f6")]
 [assembly: System.Reflection.AssemblyProductAttribute("SpellTalentSystem.Abilities")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SpellTalentSystem.Abilities")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
