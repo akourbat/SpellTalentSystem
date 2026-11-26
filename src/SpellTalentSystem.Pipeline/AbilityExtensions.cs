@@ -38,7 +38,6 @@ public static class AbilityExtensions
         {
             PrimaryAbility p => p with { SubAbilities = subAbilities },
             DependentAbility d => d with { SubAbilities = subAbilities },
-            _ => throw new InvalidOperationException($"Unsupported Ability subtype: {ability.GetType().Name}")
         };
 
     public static Ability AddSubAbility(this Ability ability, Ability child) =>

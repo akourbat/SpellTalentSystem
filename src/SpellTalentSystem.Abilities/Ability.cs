@@ -78,6 +78,5 @@ public sealed record DependentAbility : Ability
         AbilityEffect effect,
         ImmutableArray<Ability> subAbilities = default)
         : base(id, name, nature, targeting, delivery, effect, subAbilities)
-    {
-    }
+    { }
 }
