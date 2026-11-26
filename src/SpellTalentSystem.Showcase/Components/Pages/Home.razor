@@ -1,0 +1,461 @@
+﻿@page "/"
+@using System.Collections.Immutable
+@using System.Linq
+@using System.Reactive.Linq
+@using DynamicData
+@using SpellTalentSystem.Abilities
+@using SpellTalentSystem.Pipeline
+@implements IDisposable
+
+<div style="max-width: 1280px; margin: 0 auto; padding: 24px;">
+    <header style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:16px; margin-bottom:24px;">
+        <div>
+            <h1 style="margin:0; font-size:1.5rem; color:#f8fafc;">Spell &amp; Talent Reactive Pipeline</h1>
+            <p style="margin:4px 0 0; font-size:0.875rem; color:#94a3b8;">
+                Click talent tiles on the left to equip/unequip — DynamicData pushes incremental tree diffs to the right.
+            </p>
+        </div>
+        <button @onclick="ResetAll"
+                style="background:#1e293b; color:#e2e8f0; border:1px solid #475569; border-radius:8px; padding:8px 14px; cursor:pointer; font-weight:600;">
+            Reset Loadout (@_equippedIds.Count Active)
+        </button>
+    </header>
+
+    <div style="display:grid; grid-template-columns: 380px 1fr; gap:24px; align-items:start;">
+        <!-- LEFT COLUMN: SELECTABLE TALENT TILES -->
+        <section>
+            <h2 style="font-size:1rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin:0 0 12px;">
+                Available Talents &amp; Traits
+            </h2>
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                @foreach (var item in _catalog)
+                {
+                    bool isEquipped = _equippedIds.Contains(item.Talent.Id);
+                    string borderColor = isEquipped ? "#38bdf8" : "#334155";
+                    string bgColor = isEquipped ? "#172554" : "#1e293b";
+
+                    <div @onclick="() => ToggleTalent(item.Talent)"
+                         style="background:@bgColor; border:2px solid @borderColor; border-radius:10px; padding:14px; cursor:pointer; transition:all 0.15s ease;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="font-weight:700; color:#f8fafc; font-size:1rem;">@item.Talent.Name</span>
+                            <span style="font-size:0.75rem; padding:2px 8px; border-radius:999px; background:@(isEquipped ? "#0284c7" : "#334155"); color:#f8fafc; font-weight:600;">
+                                @(isEquipped ? "EQUIPPED" : item.Tag)
+                            </span>
+                        </div>
+                        <p style="margin:0 0 8px; font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
+                            @item.Description
+                        </p>
+                        <div style="font-size:0.75rem; color:#94a3b8;">
+                            Priority: <strong style="color:#e2e8f0;">@item.Talent.Priority</strong>
+                            @(item.Talent.Priority == 0 ? " (Transformative)" : " (Commutative Enrichment)")
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: LIVE RESOLVED ABILITY TREES -->
+        <section>
+            <h2 style="font-size:1rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin:0 0 12px;">
+                Resolved Ability Trees (@_resolvedTrees.Count)
+            </h2>
+
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                @foreach (var tree in _resolvedTrees)
+                {
+                    if (tree.IsEmpty) continue;
+                    var rootNode = tree.ElementAt(0);
+                    var baseAbility = _baseLookup[rootNode.Ability.Id];
+                    bool treeChanged = !rootNode.AppliedTalentIds.IsEmpty;
+
+                    <div style="background:#1e293b; border:1px solid @(treeChanged ? "#22c55e" : "#334155"); border-radius:12px; padding:16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="font-size:1.15rem; font-weight:700; color:#f8fafc;">@rootNode.Ability.Name</span>
+                                @RenderNatureBadge(rootNode.Ability.Nature, baseAbility.Nature)
+                            </div>
+                            @if (treeChanged)
+                            {
+                                <span style="font-size:0.75rem; background:#14532d; color:#86efac; border:1px solid #22c55e; padding:3px 10px; border-radius:999px; font-weight:600;">
+                                    Modified by @rootNode.AppliedTalentIds.Length talent(s)
+                                </span>
+                            }
+                        </div>
+
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            @foreach (var node in tree)
+                            {
+                                int indentPx = node.Depth * 24;
+                                bool isSpawnedByTalent = node.Depth > 0 && !HasOriginalChild(baseAbility, node.Ability.Id);
+
+                                <div style="margin-left:@(indentPx)px; background:#0f172a; border:1px solid @(isSpawnedByTalent ? "#f59e0b" : "#334155"); border-radius:8px; padding:12px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            @if (node.Depth > 0)
+                                            {
+                                                <span style="color:#64748b; font-weight:700;">↳</span>
+                                            }
+                                            <strong style="color:#f1f5f9; font-size:0.95rem;">@node.Ability.Name</strong>
+                                            @if (node.Depth > 0)
+                                            {
+                                                @RenderNatureBadge(node.Ability.Nature, node.Ability.Nature)
+                                            }
+                                            @if (isSpawnedByTalent)
+                                            {
+                                                <span style="font-size:0.7rem; background:#78350f; color:#fde68a; padding:2px 7px; border-radius:6px; font-weight:600;">
+                                                    + TRAIT PROC
+                                                </span>
+                                            }
+                                        </div>
+
+                                        @if (node.Ability is PrimaryAbility primary)
+                                        {
+                                            <div style="font-size:0.8rem; color:#94a3b8;">
+                                                Cast: <strong style="color:#e2e8f0;">@primary.CastTimeSeconds.Resolve()s</strong> ·
+                                                @(node.Depth > 0 ? "ICD" : "CD"):
+                                                @RenderStat(primary.CooldownSeconds, "s")
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:8px; font-size:0.85rem;">
+                                        <div style="background:#1e293b; padding:8px 10px; border-radius:6px;">
+                                            <span style="color:#94a3b8;">Targeting:</span>
+                                            <div style="color:#e2e8f0; margin-top:2px;">@RenderTargeting(node.Ability.Targeting)</div>
+                                        </div>
+                                        <div style="background:#1e293b; padding:8px 10px; border-radius:6px;">
+                                            <span style="color:#94a3b8;">Effect:</span>
+                                            <div style="color:#e2e8f0; margin-top:2px;">@RenderEffect(node.Ability.Effect)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</div>
+@code {
+    private sealed record TalentCatalogItem(Talent Talent, string Tag, string Description);
+
+    private readonly AbilityTalentPipeline _pipeline = new();
+    private readonly Dictionary<string, PrimaryAbility> _baseLookup = new();
+    private readonly HashSet<string> _equippedIds = new();
+    private List<TalentCatalogItem> _catalog = [];
+    private List<ImmutableArray<ResolvedAbilityNode>> _resolvedTrees = [];
+    private IDisposable? _subscription;
+
+    protected override void OnInitialized()
+    {
+        SeedAbilities();
+        SeedTalents();
+
+        _subscription = _pipeline.ResolvedAbilityTrees
+            .Bind(out var trees)
+            .Subscribe(_ =>
+            {
+                _resolvedTrees = trees.ToList();
+                InvokeAsync(StateHasChanged);
+            });
+    }
+
+    private void SeedAbilities()
+    {
+        var frostbolt = new PrimaryAbility(
+            id: "frostbolt",
+            name: "Frostbolt",
+            nature: new ElementalNature(new Frost()),
+            targeting: new SingleTarget(1200.0, new Enemies()),
+            delivery: new ProjectileDelivery(Speed: 1600.0, Pierces: false, BounceCount: 0),
+            effect: new DirectDamage(BaseDamage: 250.0, Coefficient: 0.85),
+            castTimeSeconds: 1.0,
+            cooldownSeconds: 6.0,
+            subAbilities:
+            [
+                new DependentAbility(
+                    id: "frostbolt-chill",
+                    name: "Frostbite",
+                    nature: new SoftControlNature(new Chilled()),
+                    targeting: new SingleTarget(1200.0, new Enemies()),
+                    delivery: new InstantDelivery(),
+                    effect: new ApplyStatus(DurationSeconds: 3.0, Stacks: 1))
+            ]);
+
+        var searingStrike = new PrimaryAbility(
+            id: "searing-strike",
+            name: "Searing Strike",
+            nature: new ElementalNature(new Fire()),
+            targeting: new PointBlankAoE(Radius: 240.0, MaxTargets: 5, Allegiance: new Enemies()),
+            delivery: new InstantDelivery(),
+            effect: new DirectDamage(BaseDamage: 320.0, Coefficient: 1.15),
+            castTimeSeconds: 0.5,
+            cooldownSeconds: 8.0,
+            subAbilities:
+            [
+                new DependentAbility(
+                    id: "searing-strike-might",
+                    name: "Searing Empower",
+                    nature: new BoonNature(new Might()),
+                    targeting: new PointBlankAoE(Radius: 300.0, MaxTargets: 5, Allegiance: new Allies()),
+                    delivery: new InstantDelivery(),
+                    effect: new ApplyStatus(DurationSeconds: 8.0, Stacks: 3))
+            ]);
+
+        var shieldStance = new PrimaryAbility(
+            id: "shield-stance",
+            name: "Shield Stance",
+            nature: new DefensiveNature(new Block()),
+            targeting: new SelfTarget(),
+            delivery: new ChanneledDelivery(DurationSeconds: 3.0, TickIntervalSeconds: 0.5),
+            effect: new ModifyIncomingDamage(new AllDamageCategory(), Multiplier: 0.0, DurationSeconds: 3.0),
+            castTimeSeconds: 0.0,
+            cooldownSeconds: 25.0);
+
+        foreach (var ability in new[] { frostbolt, searingStrike, shieldStance })
+        {
+            _baseLookup[ability.Id] = ability;
+            _pipeline.AddOrUpdateAbility(ability);
+        }
+    }
+
+    private void SeedTalents()
+    {
+        var iceNovaProc = new PrimaryAbility(
+            id: "trait-ice-nova",
+            name: "Shattering Nova",
+            nature: new ElementalNature(new Frost()),
+            targeting: new TargetCenteredAoE(Radius: 300.0, MaxTargets: 5, Allegiance: new Enemies()),
+            delivery: new InstantDelivery(),
+            effect: new DirectDamage(BaseDamage: 180.0, Coefficient: 0.65),
+            castTimeSeconds: 0.0,
+            cooldownSeconds: 12.0);
+
+        _catalog =
+        [
+            new(
+                new Talent(
+                    Id: "transform-frostfire",
+                    Name: "Frostfire Infusion",
+                    Priority: 0,
+                    Apply: root => root is PrimaryAbility p && p.IsElement(new Frost())
+                        ? p with { Nature = new ElementalNature(new Fire()) }
+                        : root),
+                "Transform",
+                "Converts Frost primary abilities into Fire nature (runs at Priority 0 before Fire enrichment)."),
+
+            new(
+                new Talent(
+                    Id: "talent-biting-cold",
+                    Name: "Biting Cold",
+                    Priority: 100,
+                    Apply: root => root.TransformTree(node => node.MapEffect(
+                        n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
+                        eff => eff.Value is DirectDamage dmg
+                            ? dmg with { BaseDamage = dmg.BaseDamage.AddFlat(50.0) }
+                            : eff))),
+                "+50 Flat",
+                "Frost direct damage abilities gain +50 Base Damage."),
+
+            new(
+                new Talent(
+                    Id: "talent-glacial-mastery",
+                    Name: "Glacial Mastery",
+                    Priority: 100,
+                    Apply: root => root.TransformTree(node => node.MapEffect(
+                        n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
+                        eff => eff.Value is DirectDamage dmg
+                            ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.20) }
+                            : eff))),
+                "+20% Inc",
+                "Frost direct damage abilities gain +20% Increased Damage."),
+
+            new(
+                new Talent(
+                    Id: "talent-pyromancy",
+                    Name: "Pyromancy",
+                    Priority: 100,
+                    Apply: root => root.TransformTree(node => node.MapEffect(
+                        n => n.IsElement(new Fire()) && n.Effect.Value is DirectDamage,
+                        eff => eff.Value is DirectDamage dmg
+                            ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.25) }
+                            : eff))),
+                "+25% Fire",
+                "Fire direct damage abilities gain +25% Increased Damage (works on Frostbolt if Frostfire Infusion is active!)."),
+
+            new(
+                new Talent(
+                    Id: "talent-deep-freeze",
+                    Name: "Deep Freeze",
+                    Priority: 100,
+                    Apply: root => root.TransformTree(node => node.MapEffect(
+                        n => n.Nature.Value is SoftControlNature(var c) && c.Value is Chilled,
+                        eff => eff.Value is ApplyStatus st
+                            ? st with { DurationSeconds = st.DurationSeconds.AddFlat(2.0) }
+                            : eff))),
+                "+2s Chill",
+                "Increases Chilled application duration by +2.0 seconds."),
+
+            new(
+                new Talent(
+                    Id: "talent-expansive-blast",
+                    Name: "Expansive Blast",
+                    Priority: 100,
+                    Apply: root => root.TransformTree(node => node.MapTargeting(
+                        n => n.Targeting.Value is PointBlankAoE,
+                        tgt => tgt.Value is PointBlankAoE aoe
+                            ? aoe with { Radius = aoe.Radius.AddIncreased(0.25) }
+                            : tgt))),
+                "+25% AoE",
+                "Increases Point-Blank AoE radius by +25% across both harmful and beneficial pulses."),
+
+            new(
+                new Talent(
+                    Id: "trait-shattering-nova",
+                    Name: "Shattering Nova",
+                    Priority: 10,
+                    Apply: root => root.IsElement(new Frost())
+                        ? root.AddSubAbility(iceNovaProc)
+                        : root),
+                "Trait Proc",
+                "Frost primary abilities trigger Shattering Nova (300 AoE, 12s ICD) on hit.")
+        ];
+    }
+
+    private void ToggleTalent(Talent talent)
+    {
+        if (_equippedIds.Remove(talent.Id))
+        {
+            _pipeline.UnequipTalent(talent.Id);
+        }
+        else
+        {
+            _equippedIds.Add(talent.Id);
+            _pipeline.EquipTalent(talent);
+        }
+    }
+
+    private void ResetAll()
+    {
+        foreach (var id in _equippedIds.ToList())
+        {
+            _pipeline.UnequipTalent(id);
+        }
+        _equippedIds.Clear();
+    }
+    private static bool HasOriginalChild(PrimaryAbility root, string childId) =>
+        root.SubAbilities.Any(s => s.Id == childId || (s is PrimaryAbility p && HasOriginalChild(p, childId)));
+
+    private static RenderFragment RenderNatureBadge(AbilityNature current, AbilityNature original) => builder =>
+    {
+        bool converted = !current.Equals(original);
+        string label = FormatNature(current);
+        string bg = current.Value switch
+        {
+            ElementalNature(var e) when e.Value is Frost => "#0369a1",
+            ElementalNature(var e) when e.Value is Fire => "#b91c1c",
+            DefensiveNature => "#4338ca",
+            SoftControlNature => "#0f766e",
+            BoonNature => "#a16207",
+            _ => "#334155"
+        };
+
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "style",
+            $"font-size:0.75rem; padding:2px 9px; border-radius:999px; background:{bg}; color:#f8fafc; font-weight:600;" +
+            (converted ? " outline:2px solid #fbbf24;" : ""));
+        builder.AddContent(2, converted ? $"{label} (Converted!)" : label);
+        builder.CloseElement();
+    };
+
+    private static RenderFragment RenderStat(StatValue<double> stat, string unit = "") => builder =>
+    {
+        bool modified = !stat.IsUnmodified;
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "style", modified
+            ? "color:#4ade80; font-weight:700;"
+            : "color:#e2e8f0; font-weight:600;");
+        builder.AddContent(2, $"{stat.Resolve():0.##}{unit}");
+
+        if (modified)
+        {
+            builder.OpenElement(3, "span");
+            builder.AddAttribute(4, "style", "font-size:0.75rem; color:#86efac; font-weight:400; margin-left:4px;");
+            builder.AddContent(5, $"[Base {stat.Base:0.##}{unit}" +
+                (stat.FlatModifier != 0 ? $", +{stat.FlatModifier:0.##}" : "") +
+                (stat.IncreasedPercent != 0 ? $", +{stat.IncreasedPercent * 100:0.#}%" : "") +
+                (stat.MoreMultiplier != 1.0 ? $", x{stat.MoreMultiplier:0.##}" : "") + "]");
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private static RenderFragment RenderTargeting(AbilityTargeting targeting) => builder =>
+    {
+        switch (targeting.Value)
+        {
+            case SelfTarget:
+                builder.AddContent(0, "Self");
+                break;
+            case SingleTarget(var range, _):
+                builder.AddContent(0, "Single Target · Range ");
+                builder.AddContent(1, RenderStat(range));
+                break;
+            case PointBlankAoE(var radius, var max, var allegiance):
+                builder.AddContent(0, $"PBAoE ({allegiance.Value?.GetType().Name}) · Radius ");
+                builder.AddContent(1, RenderStat(radius));
+                builder.AddContent(2, $" · Max {max.Resolve()}");
+                break;
+            case TargetCenteredAoE(var radius, var max, _):
+                builder.AddContent(0, "Target AoE · Radius ");
+                builder.AddContent(1, RenderStat(radius));
+                builder.AddContent(2, $" · Max {max.Resolve()}");
+                break;
+            default:
+                builder.AddContent(0, targeting.Value?.GetType().Name ?? "Unknown");
+                break;
+        }
+    };
+
+    private static RenderFragment RenderEffect(AbilityEffect effect) => builder =>
+    {
+        switch (effect.Value)
+        {
+            case DirectDamage(var dmg, var coeff):
+                builder.AddContent(0, "Direct Damage: ");
+                builder.AddContent(1, RenderStat(dmg));
+                builder.AddContent(2, $" (Coeff {coeff.Resolve():0.##})");
+                break;
+            case ApplyStatus(var dur, var stacks):
+                builder.AddContent(0, $"Apply {stacks.Resolve()}x for ");
+                builder.AddContent(1, RenderStat(dur, "s"));
+                break;
+            case ModifyIncomingDamage(_, var mult, var dur):
+                builder.AddContent(0, $"Incoming Damage x{mult.Resolve():0.##} for ");
+                builder.AddContent(1, RenderStat(dur, "s"));
+                break;
+            default:
+                builder.AddContent(0, effect.Value?.GetType().Name ?? "Unknown");
+                break;
+        }
+    };
+
+    private static string FormatNature(AbilityNature nature) => nature.Value switch
+    {
+        ElementalNature(var e) => $"{e.Value?.GetType().Name}",
+        DefensiveNature(var d) => $"Defensive ({d.Value?.GetType().Name})",
+        SoftControlNature(var c) => $"Control ({c.Value?.GetType().Name})",
+        BoonNature(var b) => $"Boon ({b.Value?.GetType().Name})",
+        PhysicalNature(var p) => $"Physical ({p.Value?.GetType().Name})",
+        _ => nature.Value?.GetType().Name ?? "Utility"
+    };
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        _pipeline.Dispose();
+    }
+}
