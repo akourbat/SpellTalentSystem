@@ -70,8 +70,8 @@ public sealed class AbilityTalentPipeline : IDisposable
         ApplyPreOrderedTalentsAndExpand(baseAbility, OrderTalents(talents));
 
     private static ImmutableArray<ResolvedAbilityNode> ApplyPreOrderedTalentsAndExpand(
-        PrimaryAbility baseAbility,
-        IEnumerable<Talent> orderedTalents)
+    PrimaryAbility baseAbility,
+    IEnumerable<Talent> orderedTalents)
     {
         Ability current = baseAbility;
         var appliedIds = ImmutableArray.CreateBuilder<string>();
@@ -88,7 +88,8 @@ public sealed class AbilityTalentPipeline : IDisposable
 
         var talentIds = appliedIds.ToImmutable();
         var nodes = ImmutableArray.CreateBuilder<ResolvedAbilityNode>();
-        ExpandNode(current, depth: 0, parentId: null, talentIds, nodes);
+        var ancestorPath = ImmutableList<string>.Empty;
+        ExpandNode(current, depth: 0, parentId: null, talentIds, ancestorPath, nodes);
         return nodes.ToImmutable();
     }
 
@@ -97,15 +98,25 @@ public sealed class AbilityTalentPipeline : IDisposable
         int depth,
         string? parentId,
         ImmutableArray<string> appliedTalentIds,
+        ImmutableList<string> ancestorPath,
         ImmutableArray<ResolvedAbilityNode>.Builder output)
     {
+        if (ancestorPath.Contains(node.Id))
+        {
+            var cycleTrace = string.Join(" -> ", ancestorPath.Add(node.Id));
+            throw new InvalidOperationException(
+                $"Circular sub-ability reference detected while expanding '{ancestorPath.ElementAt(0)}': {cycleTrace}");
+        }
+
+        var currentPath = ancestorPath.Add(node.Id);
         output.Add(new ResolvedAbilityNode(node, depth, parentId, appliedTalentIds));
 
         foreach (var child in node.SubAbilities)
         {
-            ExpandNode(child, depth + 1, node.Id, appliedTalentIds, output);
+            ExpandNode(child, depth + 1, node.Id, appliedTalentIds, currentPath, output);
         }
     }
+
 
     public void Dispose()
     {

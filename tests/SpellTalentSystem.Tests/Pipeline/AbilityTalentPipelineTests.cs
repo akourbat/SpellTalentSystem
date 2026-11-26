@@ -198,4 +198,80 @@ public sealed class AbilityTalentPipelineTests
         Assert.True(revertedChill.DurationSeconds.IsUnmodified);
         Assert.Equal(3.0, revertedChill.DurationSeconds.Resolve());
     }
+    [Fact]
+    public void ExpandNode_ThrowsDescriptiveException_WhenTraitCreatesCircularSubAbilityLoop()
+    {
+        var chainLightning = new PrimaryAbility(
+            id: "chain-lightning",
+            name: "Chain Lightning",
+            nature: new ElementalNature(new Lightning()),
+            targeting: new SingleTarget(1200.0, new Enemies()),
+            delivery: new ChainDelivery(MaxBounces: 3, BounceRadius: 400.0),
+            effect: new DirectDamage(BaseDamage: 200.0, Coefficient: 0.75),
+            castTimeSeconds: 0.75,
+            cooldownSeconds: 8.0);
+
+        var staticDischarge = new PrimaryAbility(
+            id: "static-discharge",
+            name: "Static Discharge",
+            nature: new ElementalNature(new Lightning()),
+            targeting: new PointBlankAoE(Radius: 240.0, MaxTargets: 5, Allegiance: new Enemies()),
+            delivery: new InstantDelivery(),
+            effect: new DirectDamage(BaseDamage: 90.0, Coefficient: 0.40),
+            castTimeSeconds: 0.0,
+            cooldownSeconds: 4.0,
+            subAbilities: [chainLightning]); // Points back to chain-lightning!
+
+        var cyclicTrait = new Talent(
+            Id: "trait-recursive-overload",
+            Name: "Recursive Overload",
+            Priority: 10,
+            Apply: root => root.Id == "chain-lightning"
+                ? root.AddSubAbility(staticDischarge)
+                : root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            AbilityTalentPipeline.ApplyTalentsAndExpand(chainLightning, [cyclicTrait]));
+
+        Assert.Contains("chain-lightning -> static-discharge -> chain-lightning", ex.Message);
+    }
+
+    [Fact]
+    public void ExpandNode_AllowsSameSubAbilityId_AcrossDistinctSiblingBranches()
+    {
+        var iceShard = new DependentAbility(
+            id: "ice-shard",
+            name: "Ice Shard",
+            nature: new ElementalNature(new Frost()),
+            targeting: new SingleTarget(900.0, new Enemies()),
+            delivery: new InstantDelivery(),
+            effect: new DirectDamage(BaseDamage: 60.0, Coefficient: 0.25));
+
+        var frostPulse = new DependentAbility(
+            id: "frost-pulse",
+            name: "Frost Pulse",
+            nature: new ElementalNature(new Frost()),
+            targeting: new PointBlankAoE(Radius: 250.0, MaxTargets: 5, Allegiance: new Enemies()),
+            delivery: new InstantDelivery(),
+            effect: new DirectDamage(BaseDamage: 100.0, Coefficient: 0.45),
+            subAbilities: [iceShard]);
+
+        var glacialBarrage = new PrimaryAbility(
+            id: "glacial-barrage",
+            name: "Glacial Barrage",
+            nature: new ElementalNature(new Frost()),
+            targeting: new SingleTarget(1200.0, new Enemies()),
+            delivery: new ProjectileDelivery(Speed: 1600.0, Pierces: false, BounceCount: 0),
+            effect: new DirectDamage(BaseDamage: 220.0, Coefficient: 0.80),
+            castTimeSeconds: 1.0,
+            cooldownSeconds: 6.0,
+            subAbilities: [iceShard, frostPulse]);
+
+        var resolved = AbilityTalentPipeline.ApplyTalentsAndExpand(glacialBarrage, []);
+
+        // Root + direct iceShard + frostPulse + nested iceShard = 4 nodes
+        Assert.Equal(4, resolved.Length);
+        Assert.Equal(2, resolved.Count(n => n.Ability.Id == "ice-shard"));
+    }
+
 }
