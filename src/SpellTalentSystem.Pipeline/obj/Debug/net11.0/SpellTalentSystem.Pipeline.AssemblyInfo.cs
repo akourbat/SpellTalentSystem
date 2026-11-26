@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SpellTalentSystem.Pipeline")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d3dcc1eb7a65982d521a43035dc6ba9fcfaf75f6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+98a6223351b41df3444a7b553713a6216b30eb3d")]
 [assembly: System.Reflection.AssemblyProductAttribute("SpellTalentSystem.Pipeline")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SpellTalentSystem.Pipeline")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

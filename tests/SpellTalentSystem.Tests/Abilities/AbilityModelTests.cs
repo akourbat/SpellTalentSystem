@@ -1,3 +1,4 @@
+using System.Linq;
 using SpellTalentSystem.Abilities;
 using Xunit;
 
@@ -35,9 +36,9 @@ public sealed class AbilityModelTests
 
         Assert.Single(searingStrike.SubAbilities);
         Assert.IsType<DirectDamage>(searingStrike.Effect.Value);
-        Assert.IsType<ApplyStatus>(searingStrike.SubAbilities[0].Effect.Value);
-        Assert.Equal(240.0, ((PointBlankAoE)searingStrike.Targeting.Value!).Radius.Current);
-        Assert.Equal(300.0, ((PointBlankAoE)selfMightPulse.Targeting.Value!).Radius.Current);
+        Assert.IsType<ApplyStatus>(searingStrike.SubAbilities.ElementAt(0).Effect.Value);
+        Assert.Equal(240.0, ((PointBlankAoE)searingStrike.Targeting.Value!).Radius.Resolve());
+        Assert.Equal(300.0, ((PointBlankAoE)selfMightPulse.Targeting.Value!).Radius.Resolve());
     }
 
     [Fact]
@@ -59,6 +60,6 @@ public sealed class AbilityModelTests
         Assert.IsType<DefensiveNature>(shieldStance.Nature.Value);
         Assert.IsType<SelfTarget>(shieldStance.Targeting.Value);
         var reduction = Assert.IsType<ModifyIncomingDamage>(shieldStance.Effect.Value);
-        Assert.Equal(0.0, reduction.Multiplier.Current);
+        Assert.Equal(0.0, reduction.Multiplier.Resolve());
     }
 }
