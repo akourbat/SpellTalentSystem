@@ -1,0 +1,15 @@
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.csproj.AssemblyReference.cache
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.GeneratedMSBuildEditorConfig.editorconfig
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.AssemblyInfoInputs.cache
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.AssemblyInfo.cs
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.csproj.CoreCompileInputs.cache
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\bin\Debug\net11.0\SpellTalentSystem.Pipeline.deps.json
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\bin\Debug\net11.0\SpellTalentSystem.Pipeline.dll
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\bin\Debug\net11.0\SpellTalentSystem.Pipeline.pdb
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\bin\Debug\net11.0\SpellTalentSystem.Abilities.dll
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\bin\Debug\net11.0\SpellTalentSystem.Abilities.pdb
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTal.200907FE.Up2Date
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.dll
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\refint\SpellTalentSystem.Pipeline.dll
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\SpellTalentSystem.Pipeline.pdb
+D:\VS Studio\SpellTalentSystem\src\SpellTalentSystem.Pipeline\obj\Debug\net11.0\ref\SpellTalentSystem.Pipeline.dll

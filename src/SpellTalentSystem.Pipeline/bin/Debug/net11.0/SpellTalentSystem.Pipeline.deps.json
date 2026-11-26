@@ -1,0 +1,75 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v11.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v11.0": {
+      "SpellTalentSystem.Pipeline/1.0.0": {
+        "dependencies": {
+          "DynamicData": "9.5.0",
+          "SpellTalentSystem.Abilities": "1.0.0"
+        },
+        "runtime": {
+          "SpellTalentSystem.Pipeline.dll": {}
+        }
+      },
+      "DynamicData/9.5.0": {
+        "dependencies": {
+          "System.Reactive": "6.1.0"
+        },
+        "runtime": {
+          "lib/net10.0/DynamicData.dll": {
+            "assemblyVersion": "9.5.0.0",
+            "fileVersion": "9.5.0.40040",
+            "localPath": "DynamicData.dll"
+          }
+        }
+      },
+      "System.Reactive/6.1.0": {
+        "runtime": {
+          "lib/net6.0/System.Reactive.dll": {
+            "assemblyVersion": "6.1.0.0",
+            "fileVersion": "6.1.0.62682",
+            "localPath": "System.Reactive.dll"
+          }
+        }
+      },
+      "SpellTalentSystem.Abilities/1.0.0": {
+        "runtime": {
+          "SpellTalentSystem.Abilities.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "SpellTalentSystem.Pipeline/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "DynamicData/9.5.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-uVXjV6KLocPnk5RNWzrHpYosctksbCCeem4elyqG/UT9TnROcoRYjDMzyDLaBHDvTWPEHfi3s1qQba30s2Cq2Q==",
+      "path": "dynamicdata/9.5.0",
+      "hashPath": "dynamicdata.9.5.0.nupkg.sha512"
+    },
+    "System.Reactive/6.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-M5cCC1ZMkZr9jbSQGTHnVkb5TDN67qWCV7AP8TAHdGkvDlu0puT5NzemESNn9+HkYIDpWpocP68/i+/ame2/2w==",
+      "path": "system.reactive/6.1.0",
+      "hashPath": "system.reactive.6.1.0.nupkg.sha512"
+    },
+    "SpellTalentSystem.Abilities/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
