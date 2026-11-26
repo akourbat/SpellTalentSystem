@@ -141,7 +141,8 @@
 @code {
     private sealed record TalentCatalogItem(Talent Talent, string Tag, string Description);
 
-    private readonly AbilityTalentPipeline _pipeline = new();
+    private readonly SourceCache<PrimaryAbility, string> _baseAbilities = new(a => a.Id);
+    private readonly SourceCache<Talent, string> _activeTalents = new(t => t.Id);
     private readonly Dictionary<string, PrimaryAbility> _baseLookup = new();
     private readonly HashSet<string> _equippedIds = new();
     private List<TalentCatalogItem> _catalog = [];
@@ -153,7 +154,8 @@
         SeedAbilities();
         SeedTalents();
 
-        _subscription = _pipeline.ResolvedAbilityTrees
+        _subscription = _baseAbilities.Connect()
+            .ResolveWithTalents(_activeTalents.Connect())
             .Bind(out var trees)
             .Subscribe(_ =>
             {
@@ -217,7 +219,7 @@
         foreach (var ability in new[] { frostbolt, searingStrike, shieldStance })
         {
             _baseLookup[ability.Id] = ability;
-            _pipeline.AddOrUpdateAbility(ability);
+            _baseAbilities.AddOrUpdate(ability);
         }
     }
 
@@ -236,115 +238,71 @@
         _catalog =
         [
             new(
-                new Talent(
-                    Id: "transform-frostfire",
-                    Name: "Frostfire Infusion",
-                    Priority: 0,
-                    Apply: root => root is PrimaryAbility p && p.IsElement(new Frost())
+                new Talent("transform-frostfire", "Frostfire Infusion", 0,
+                    root => root is PrimaryAbility p && p.IsElement(new Frost())
                         ? p with { Nature = new ElementalNature(new Fire()) }
                         : root),
                 "Transform",
                 "Converts Frost primary abilities into Fire nature (runs at Priority 0 before Fire enrichment)."),
-
             new(
-                new Talent(
-                    Id: "talent-biting-cold",
-                    Name: "Biting Cold",
-                    Priority: 100,
-                    Apply: root => root.TransformTree(node => node.MapEffect(
+                new Talent("talent-biting-cold", "Biting Cold", 100,
+                    root => root.TransformTree(node => node.MapEffect(
                         n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
-                        eff => eff.Value is DirectDamage dmg
-                            ? dmg with { BaseDamage = dmg.BaseDamage.AddFlat(50.0) }
-                            : eff))),
+                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage.AddFlat(50.0) } : eff))),
                 "+50 Flat",
                 "Frost direct damage abilities gain +50 Base Damage."),
-
             new(
-                new Talent(
-                    Id: "talent-glacial-mastery",
-                    Name: "Glacial Mastery",
-                    Priority: 100,
-                    Apply: root => root.TransformTree(node => node.MapEffect(
+                new Talent("talent-glacial-mastery", "Glacial Mastery", 100,
+                    root => root.TransformTree(node => node.MapEffect(
                         n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
-                        eff => eff.Value is DirectDamage dmg
-                            ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.20) }
-                            : eff))),
+                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.20) } : eff))),
                 "+20% Inc",
                 "Frost direct damage abilities gain +20% Increased Damage."),
-
             new(
-                new Talent(
-                    Id: "talent-pyromancy",
-                    Name: "Pyromancy",
-                    Priority: 100,
-                    Apply: root => root.TransformTree(node => node.MapEffect(
+                new Talent("talent-pyromancy", "Pyromancy", 100,
+                    root => root.TransformTree(node => node.MapEffect(
                         n => n.IsElement(new Fire()) && n.Effect.Value is DirectDamage,
-                        eff => eff.Value is DirectDamage dmg
-                            ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.25) }
-                            : eff))),
+                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.25) } : eff))),
                 "+25% Fire",
                 "Fire direct damage abilities gain +25% Increased Damage (works on Frostbolt if Frostfire Infusion is active!)."),
-
             new(
-                new Talent(
-                    Id: "talent-deep-freeze",
-                    Name: "Deep Freeze",
-                    Priority: 100,
-                    Apply: root => root.TransformTree(node => node.MapEffect(
+                new Talent("talent-deep-freeze", "Deep Freeze", 100,
+                    root => root.TransformTree(node => node.MapEffect(
                         n => n.Nature.Value is SoftControlNature(var c) && c.Value is Chilled,
-                        eff => eff.Value is ApplyStatus st
-                            ? st with { DurationSeconds = st.DurationSeconds.AddFlat(2.0) }
-                            : eff))),
+                        eff => eff.Value is ApplyStatus st ? st with { DurationSeconds = st.DurationSeconds.AddFlat(2.0) } : eff))),
                 "+2s Chill",
                 "Increases Chilled application duration by +2.0 seconds."),
-
             new(
-                new Talent(
-                    Id: "talent-expansive-blast",
-                    Name: "Expansive Blast",
-                    Priority: 100,
-                    Apply: root => root.TransformTree(node => node.MapTargeting(
+                new Talent("talent-expansive-blast", "Expansive Blast", 100,
+                    root => root.TransformTree(node => node.MapTargeting(
                         n => n.Targeting.Value is PointBlankAoE,
-                        tgt => tgt.Value is PointBlankAoE aoe
-                            ? aoe with { Radius = aoe.Radius.AddIncreased(0.25) }
-                            : tgt))),
+                        tgt => tgt.Value is PointBlankAoE aoe ? aoe with { Radius = aoe.Radius.AddIncreased(0.25) } : tgt))),
                 "+25% AoE",
                 "Increases Point-Blank AoE radius by +25% across both harmful and beneficial pulses."),
-
             new(
-                new Talent(
-                    Id: "trait-shattering-nova",
-                    Name: "Shattering Nova",
-                    Priority: 10,
-                    Apply: root => root.IsElement(new Frost())
-                        ? root.AddSubAbility(iceNovaProc)
-                        : root),
+                new Talent("trait-shattering-nova", "Shattering Nova", 10,
+                    root => root.IsElement(new Frost()) ? root.AddSubAbility(iceNovaProc) : root),
                 "Trait Proc",
                 "Frost primary abilities trigger Shattering Nova (300 AoE, 12s ICD) on hit.")
         ];
     }
-
     private void ToggleTalent(Talent talent)
     {
         if (_equippedIds.Remove(talent.Id))
-        {
-            _pipeline.UnequipTalent(talent.Id);
-        }
+            _activeTalents.Remove(talent.Id);
         else
         {
             _equippedIds.Add(talent.Id);
-            _pipeline.EquipTalent(talent);
+            _activeTalents.AddOrUpdate(talent);
         }
     }
 
     private void ResetAll()
     {
-        foreach (var id in _equippedIds.ToList())
-        {
-            _pipeline.UnequipTalent(id);
-        }
+        _activeTalents.Clear();
         _equippedIds.Clear();
     }
+
     private static bool HasOriginalChild(PrimaryAbility root, string childId) =>
         root.SubAbilities.Any(s => s.Id == childId || (s is PrimaryAbility p && HasOriginalChild(p, childId)));
 
@@ -374,9 +332,7 @@
     {
         bool modified = !stat.IsUnmodified;
         builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "style", modified
-            ? "color:#4ade80; font-weight:700;"
-            : "color:#e2e8f0; font-weight:600;");
+        builder.AddAttribute(1, "style", modified ? "color:#4ade80; font-weight:700;" : "color:#e2e8f0; font-weight:600;");
         builder.AddContent(2, $"{stat.Resolve():0.##}{unit}");
 
         if (modified)
@@ -389,7 +345,6 @@
                 (stat.MoreMultiplier != 1.0 ? $", x{stat.MoreMultiplier:0.##}" : "") + "]");
             builder.CloseElement();
         }
-
         builder.CloseElement();
     };
 
@@ -456,6 +411,7 @@
     public void Dispose()
     {
         _subscription?.Dispose();
-        _pipeline.Dispose();
+        _baseAbilities.Dispose();
+        _activeTalents.Dispose();
     }
 }

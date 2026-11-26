@@ -164,14 +164,17 @@ public sealed class AbilityTalentPipelineTests
     [Fact]
     public void ReactivePipeline_EmitsUpdatedTree_WhenTalentIsEquippedOrUnequipped()
     {
-        using var pipeline = new AbilityTalentPipeline();
+        using var baseAbilities = new SourceCache<PrimaryAbility, string>(a => a.Id);
+        using var activeTalents = new SourceCache<Talent, string>(t => t.Id);
+
         ImmutableArray<ResolvedAbilityNode>? latestTree = null;
 
-        using var subscription = pipeline.ResolvedAbilityTrees
+        using var subscription = baseAbilities.Connect()
+            .ResolveWithTalents(activeTalents.Connect())
             .Bind(out var trees)
             .Subscribe(_ => latestTree = trees.FirstOrDefault());
 
-        pipeline.AddOrUpdateAbility(CreateFrostbolt());
+        baseAbilities.AddOrUpdate(CreateFrostbolt());
         Assert.NotNull(latestTree);
         Assert.Equal(2, latestTree!.Value.Length);
 
@@ -185,19 +188,20 @@ public sealed class AbilityTalentPipelineTests
                     ? status with { DurationSeconds = status.DurationSeconds.AddFlat(2.0) }
                     : eff)));
 
-        pipeline.EquipTalent(extendChill);
+        activeTalents.AddOrUpdate(extendChill);
 
         var chillEffect = Assert.IsType<ApplyStatus>(latestTree!.Value.ElementAt(1).Ability.Effect.Value);
         Assert.Equal(3.0, chillEffect.DurationSeconds.Base);
         Assert.Equal(2.0, chillEffect.DurationSeconds.FlatModifier);
         Assert.Equal(5.0, chillEffect.DurationSeconds.Resolve());
 
-        pipeline.UnequipTalent("talent-deep-freeze");
+        activeTalents.Remove("talent-deep-freeze");
 
         var revertedChill = Assert.IsType<ApplyStatus>(latestTree!.Value.ElementAt(1).Ability.Effect.Value);
         Assert.True(revertedChill.DurationSeconds.IsUnmodified);
         Assert.Equal(3.0, revertedChill.DurationSeconds.Resolve());
     }
+
     [Fact]
     public void ExpandNode_ThrowsDescriptiveException_WhenTraitCreatesCircularSubAbilityLoop()
     {
