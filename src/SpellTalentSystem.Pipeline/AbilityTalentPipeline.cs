@@ -10,9 +10,9 @@ using SpellTalentSystem.Abilities;
 namespace SpellTalentSystem.Pipeline;
 
 /// <summary>
-/// Stateless, purely reactive DynamicData pipeline that combines base <see cref="PrimaryAbility"/>
-/// definitions with active <see cref="Talent"/> modifiers and emits flattened
-/// <see cref="ResolvedAbilityNode"/> trees.
+/// Single-subscription, stateless reactive DynamicData pipeline that combines base
+/// <see cref="PrimaryAbility"/> snapshots with sorted <see cref="Talent"/> snapshots
+/// and diffs the resulting <see cref="ResolvedAbilityNode"/> trees into an <see cref="IChangeSet{TObject, TKey}"/>.
 /// </summary>
 public sealed class AbilityTalentPipeline : IDisposable
 {
@@ -31,17 +31,23 @@ public sealed class AbilityTalentPipeline : IDisposable
                 : StringComparer.Ordinal.Compare(a.Id, b.Id);
         });
 
-        IObservable<IReadOnlyList<Talent>> sharedOrderedTalents = _activeTalents.Connect()
+        IObservable<IEnumerable<PrimaryAbility>> abilitiesStream = _baseAbilities.Connect()
+            .QueryWhenChanged(query => query.Items)
+            .StartWith(Array.Empty<PrimaryAbility>());
+
+
+        IObservable<IReadOnlyList<Talent>> sortedTalentsStream = _activeTalents.Connect()
             .SortAndBind(out var sortedTalents, sortComparer)
             .QueryWhenChanged(_ => (IReadOnlyList<Talent>)sortedTalents)
-            .StartWith(Array.Empty<Talent>())
-            .Replay(1)
-            .RefCount();
+            .StartWith(Array.Empty<Talent>());
 
-        ResolvedAbilityTrees = _baseAbilities.Connect()
-            .TransformOnObservable(ability =>
-                sharedOrderedTalents.Select(talents => ApplyPreOrderedTalentsAndExpand(ability, talents)))
-            .DistinctUntilChanged();
+        ResolvedAbilityTrees = abilitiesStream
+            .CombineLatest(
+                sortedTalentsStream,
+                (abilities, talents) => abilities
+                    .Select(ability => ApplyPreOrderedTalentsAndExpand(ability, talents))
+                    .ToList())
+            .ToObservableChangeSet(tree => tree.ElementAt(0).Ability.Id);
     }
 
     public void AddOrUpdateAbility(PrimaryAbility ability) => _baseAbilities.AddOrUpdate(ability);
@@ -50,28 +56,20 @@ public sealed class AbilityTalentPipeline : IDisposable
     public void EquipTalent(Talent talent) => _activeTalents.AddOrUpdate(talent);
     public void UnequipTalent(string talentId) => _activeTalents.Remove(talentId);
 
-    /// <summary>
-    /// Orders talents deterministically by <see cref="Talent.Priority"/> ascending,
-    /// using ordinal <see cref="Talent.Id"/> comparison as a tie-breaker.
-    /// </summary>
     public static ImmutableArray<Talent> OrderTalents(IEnumerable<Talent> talents) =>
         talents
             .OrderBy(t => t.Priority)
             .ThenBy(t => t.Id, StringComparer.Ordinal)
             .ToImmutableArray();
 
-    /// <summary>
-    /// Sorts <paramref name="talents"/> by priority, applies them to <paramref name="baseAbility"/>,
-    /// and flattens the resulting tree into <see cref="ResolvedAbilityNode"/> entries.
-    /// </summary>
     public static ImmutableArray<ResolvedAbilityNode> ApplyTalentsAndExpand(
         PrimaryAbility baseAbility,
         IEnumerable<Talent> talents) =>
         ApplyPreOrderedTalentsAndExpand(baseAbility, OrderTalents(talents));
 
     private static ImmutableArray<ResolvedAbilityNode> ApplyPreOrderedTalentsAndExpand(
-    PrimaryAbility baseAbility,
-    IEnumerable<Talent> orderedTalents)
+        PrimaryAbility baseAbility,
+        IEnumerable<Talent> orderedTalents)
     {
         Ability current = baseAbility;
         var appliedIds = ImmutableArray.CreateBuilder<string>();
@@ -116,7 +114,6 @@ public sealed class AbilityTalentPipeline : IDisposable
             ExpandNode(child, depth + 1, node.Id, appliedTalentIds, currentPath, output);
         }
     }
-
 
     public void Dispose()
     {
