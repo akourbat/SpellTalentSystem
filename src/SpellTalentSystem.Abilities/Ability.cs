@@ -8,7 +8,7 @@ namespace SpellTalentSystem.Abilities;
 /// <see cref="SubAbilities"/> (which may be either <see cref="DependentAbility"/> nodes
 /// or trait-spawned <see cref="PrimaryAbility"/> nodes with their own cooldowns).
 /// </summary>
-public abstract record Ability
+public closed record Ability
 {
     private protected Ability(
         string id,
