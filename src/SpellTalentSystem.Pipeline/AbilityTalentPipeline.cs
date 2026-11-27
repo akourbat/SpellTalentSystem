@@ -30,8 +30,9 @@ public static class AbilityTalentPipeline
     /// Owns no caches and requires no disposal.
     /// </summary>
     public static IObservable<IChangeSet<ImmutableArray<ResolvedAbilityNode>, string>> ResolveWithTalents(
-        this IObservable<IChangeSet<PrimaryAbility, string>> abilities,
-        IObservable<IChangeSet<Talent, string>> talents)
+    this IObservable<IChangeSet<PrimaryAbility, string>> abilities,
+    IObservable<IChangeSet<Talent, string>> talents) =>
+    Observable.Defer(() =>
     {
         var abilitiesStream = abilities
             .QueryWhenChanged(query => query.Items)
@@ -49,7 +50,8 @@ public static class AbilityTalentPipeline
                     .Select(ability => ApplyPreOrderedTalentsAndExpand(ability, currentTalents))
                     .ToList())
             .ToObservableChangeSet(tree => tree.ElementAt(0).Ability.Id);
-    }
+    });
+
 
     public static ImmutableArray<Talent> OrderTalents(IEnumerable<Talent> talents) =>
         talents
