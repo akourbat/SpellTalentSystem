@@ -1,3 +1,5 @@
+using System;
+
 namespace SpellTalentSystem.Abilities;
 
 // Combo field types
@@ -38,6 +40,7 @@ public sealed record HealOverTime(StatValue<double> BaseHealPerTick, StatValue<d
 public sealed record BarrierEffect(StatValue<double> BaseBarrier, StatValue<double> Coefficient, StatValue<double> DurationSeconds);
 public sealed record ApplyControl(ControlPayload Control);
 public sealed record ApplyStatus(StatValue<double> DurationSeconds, StatValue<int> Stacks);
+public sealed record ApplyBoon(BoonType Boon, StatValue<TimeSpan> Duration, StatValue<int> Stacks);
 public sealed record RemoveStatus(StatValue<int> Count);
 public sealed record GrantDefense(StatValue<double> DurationSeconds, StatValue<int>? MaxHits);
 public sealed record ModifyIncomingDamage(DamageCategory Category, StatValue<double> Multiplier, StatValue<double> DurationSeconds);
@@ -58,6 +61,7 @@ public union AbilityEffect(
     BarrierEffect,
     ApplyControl,
     ApplyStatus,
+    ApplyBoon,
     RemoveStatus,
     GrantDefense,
     ModifyIncomingDamage,

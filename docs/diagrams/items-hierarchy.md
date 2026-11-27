@@ -25,8 +25,8 @@
 ├───────────────────────────────────────────┬─────────────────────────────────────────────┤
 │   union ItemEffect (Gameplay Payloads)    │   ItemLifecycle (Progression & Economy)     │
 │───────────────────────────────────────────│─────────────────────────────────────────────│
-│ • ItemStatBonus(CharacterAttributeId,     │ • RequiredLevel: int (default 1)            │
-│                 double Value)             │ • ItemLevel: int (default 1)                │
+│ • CharacterAttribute (carries composite   │ • RequiredLevel: int (default 1)            │
+│     StatValue<double> directly)           │ • ItemLevel: int (default 1)                │
 │ • GrantedTalent(Talent)                   │ • Rarity: ItemRarity                        │
 │ • UsableAbility(Ability, Charges,         │ • Binding: BindingType                      │
 │                 ConsumeOnUse)             │ • IsBound: bool                             │
@@ -36,7 +36,7 @@
 │ • ItemSetDefinition(SetId, Name, Tiers)   │ • SetId: string?                            │
 │ • SetBonusTier(RequiredPieces, Effects)   │                                             │
 │ • EquipmentAggregator.Aggregate(...)      │ (Structural slot/proficiency rules derived  │
-│   ├─► AggregatedStats (ItemStatBonus[])   │  by systems inspecting Item.Category)       │
+│   ├─► AggregatedAttributes                │  by systems inspecting Item.Category)       │
 │   ├─► GrantedTalents (Talent[])           │                                             │
 │   └─► ActiveSetPieceCounts                │                                             │
 └───────────────────────────────────────────┴─────────────────────────────────────────────┘

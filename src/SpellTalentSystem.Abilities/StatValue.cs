@@ -1,62 +1,73 @@
 ﻿using System;
-using System.Numerics;
 
 namespace SpellTalentSystem.Abilities;
 
 /// <summary>
-/// Represents an enrichable ability stat using commutative modifier buckets:
-/// <list type="bullet">
-///   <item><description><see cref="Base"/>: Authored baseline value.</description></item>
-///   <item><description><see cref="FlatModifier"/>: Commutative sum of flat additions.</description></item>
-///   <item><description><see cref="IncreasedPercent"/>: Commutative sum of additive percentage increases (e.g. 0.20 = +20%).</description></item>
-///   <item><description><see cref="MoreMultiplier"/>: Commutative product of multiplicative factors (1.0 = neutral).</description></item>
-/// </list>
+/// Universal composite value keeping Base, FlatModifier, and IncreasedPercent separate
+/// until final evaluation via <see cref="Resolve"/>.
 /// </summary>
 public readonly record struct StatValue<T>(
     T Base,
-    T FlatModifier,
-    double IncreasedPercent,
-    double MoreMultiplier)
-    where T : struct, INumber<T>
+    T FlatModifier = default,
+    double IncreasedPercent = 0.0) where T : struct
 {
-    public static StatValue<T> FromBase(T baseValue) =>
-        new(baseValue, T.Zero, IncreasedPercent: 0.0, MoreMultiplier: 1.0);
-
     public bool IsUnmodified =>
-        FlatModifier == T.Zero &&
-        IncreasedPercent == 0.0 &&
-        MoreMultiplier == 1.0;
-
-    public StatValue<T> AddFlat(T flat) =>
-        this with { FlatModifier = FlatModifier + flat };
-
-    public StatValue<T> AddIncreased(double percent) =>
-        this with { IncreasedPercent = IncreasedPercent + percent };
-
-    public StatValue<T> MultiplyMore(double factor) =>
-        this with { MoreMultiplier = MoreMultiplier * factor };
+        EqualityComparer<T>.Default.Equals(FlatModifier, default) &&
+        IncreasedPercent == 0.0;
+    public static StatValue<T> FromBase(T value) => new(Base: value);
+    public static StatValue<T> FromFlat(T flat) => new(Base: default, FlatModifier: flat);
+    public static StatValue<T> FromPercent(double increasedPercent) => new(Base: default, IncreasedPercent: increasedPercent);
 
     public static implicit operator StatValue<T>(T baseValue) => FromBase(baseValue);
-
-    public override string ToString() =>
-        IsUnmodified
-            ? $"{Base}"
-            : $"{Base} (Flat: {FlatModifier:+#;-#;0}, Inc: {IncreasedPercent:+0.##%;-0.##%;0%}, More: x{MoreMultiplier:0.##})";
 }
 
 public static class StatValueExtensions
 {
-    /// <summary>
-    /// Evaluates the enriched floating-point value:
-    /// <c>(Base + FlatModifier) * (1.0 + IncreasedPercent) * MoreMultiplier</c>.
-    /// </summary>
-    public static double Resolve(this StatValue<double> stat) =>
-        (stat.Base + stat.FlatModifier) * (1.0 + stat.IncreasedPercent) * stat.MoreMultiplier;
+    // --- double ---
+    public static StatValue<double> AddFlat(this StatValue<double> stat, double flat) =>
+        stat with { FlatModifier = stat.FlatModifier + flat };
 
-    /// <summary>
-    /// Evaluates the enriched integer stat (e.g., MaxTargets, BounceCount, Stacks),
-    /// rounding toward zero after applying percentage/multiplicative modifiers.
-    /// </summary>
+    public static StatValue<double> AddIncreased(this StatValue<double> stat, double increasedPercent) =>
+        stat with { IncreasedPercent = stat.IncreasedPercent + increasedPercent };
+
+    public static StatValue<double> Combine(this StatValue<double> a, StatValue<double> b) =>
+        new(
+            Base: a.Base + b.Base,
+            FlatModifier: a.FlatModifier + b.FlatModifier,
+            IncreasedPercent: a.IncreasedPercent + b.IncreasedPercent);
+
+    public static double Resolve(this StatValue<double> stat) =>
+        (stat.Base + stat.FlatModifier) * (1.0 + stat.IncreasedPercent);
+
+    // --- int ---
+    public static StatValue<int> AddFlat(this StatValue<int> stat, int flat) =>
+        stat with { FlatModifier = stat.FlatModifier + flat };
+
+    public static StatValue<int> AddIncreased(this StatValue<int> stat, double increasedPercent) =>
+        stat with { IncreasedPercent = stat.IncreasedPercent + increasedPercent };
+
+    public static StatValue<int> Combine(this StatValue<int> a, StatValue<int> b) =>
+        new(
+            Base: a.Base + b.Base,
+            FlatModifier: a.FlatModifier + b.FlatModifier,
+            IncreasedPercent: a.IncreasedPercent + b.IncreasedPercent);
+
     public static int Resolve(this StatValue<int> stat) =>
-        (int)((stat.Base + stat.FlatModifier) * (1.0 + stat.IncreasedPercent) * stat.MoreMultiplier);
+        (int)Math.Round((stat.Base + stat.FlatModifier) * (1.0 + stat.IncreasedPercent));
+
+    // --- TimeSpan ---
+    public static StatValue<TimeSpan> AddFlat(this StatValue<TimeSpan> stat, TimeSpan flat) =>
+        stat with { FlatModifier = stat.FlatModifier + flat };
+
+    public static StatValue<TimeSpan> AddIncreased(this StatValue<TimeSpan> stat, double increasedPercent) =>
+        stat with { IncreasedPercent = stat.IncreasedPercent + increasedPercent };
+
+    public static StatValue<TimeSpan> Combine(this StatValue<TimeSpan> a, StatValue<TimeSpan> b) =>
+        new(
+            Base: a.Base + b.Base,
+            FlatModifier: a.FlatModifier + b.FlatModifier,
+            IncreasedPercent: a.IncreasedPercent + b.IncreasedPercent);
+
+    public static TimeSpan Resolve(this StatValue<TimeSpan> stat) =>
+        TimeSpan.FromTicks((long)Math.Round((stat.Base + stat.FlatModifier).Ticks * (1.0 + stat.IncreasedPercent)));
 }

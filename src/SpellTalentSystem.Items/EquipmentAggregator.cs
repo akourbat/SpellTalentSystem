@@ -8,12 +8,15 @@ using SpellTalentSystem.Pipeline;
 namespace SpellTalentSystem.Items;
 
 public sealed record AggregatedEquipment(
-    ImmutableArray<ItemStatBonus> AggregatedStats,
+    ImmutableArray<CharacterAttribute> AggregatedAttributes,
     ImmutableArray<Talent> GrantedTalents,
     ImmutableDictionary<string, int> ActiveSetPieceCounts)
 {
-    public double GetStatTotal(CharacterAttributeId attribute) =>
-        AggregatedStats.FirstOrDefault(s => s.Attribute.Equals(attribute))?.Value ?? 0.0;
+    public StatValue<double> GetAttributeBucket(AttributeKind kind)
+    {
+        var match = AggregatedAttributes.FirstOrDefault(a => a.Value is not null && a.Kind == kind);
+        return match.Value is null ? default : match.Stat;
+    }
 }
 
 public static class EquipmentAggregator
@@ -22,13 +25,13 @@ public static class EquipmentAggregator
         IEnumerable<Item> equippedItems,
         IEnumerable<ItemSetDefinition>? setDefinitions = null)
     {
-        var statTotals = new Dictionary<CharacterAttributeId, double>();
+        var rawAttributes = ImmutableArray.CreateBuilder<CharacterAttribute>();
         var talents = ImmutableArray.CreateBuilder<Talent>();
         var setCounts = new Dictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var root in equippedItems)
         {
-            CollectFromNode(root, statTotals, talents, setCounts);
+            CollectFromNode(root, rawAttributes, talents, setCounts);
         }
 
         if (setDefinitions is not null)
@@ -40,20 +43,20 @@ public static class EquipmentAggregator
 
                 foreach (var tier in set.Tiers.Where(t => count >= t.RequiredPieces).OrderBy(t => t.RequiredPieces))
                 {
-                    ApplyEffects(tier.Effects, statTotals, talents);
+                    ApplyEffects(tier.Effects, rawAttributes, talents);
                 }
             }
         }
 
         return new AggregatedEquipment(
-            AggregatedStats: [.. statTotals.Select(kvp => new ItemStatBonus(kvp.Key, kvp.Value))],
+            AggregatedAttributes: CharacterAttribute.Aggregate(rawAttributes),
             GrantedTalents: talents.ToImmutable(),
             ActiveSetPieceCounts: setCounts.ToImmutableDictionary());
     }
 
     private static void CollectFromNode(
         Item node,
-        Dictionary<CharacterAttributeId, double> statTotals,
+        ImmutableArray<CharacterAttribute>.Builder rawAttributes,
         ImmutableArray<Talent>.Builder talents,
         Dictionary<string, int> setCounts)
     {
@@ -62,28 +65,28 @@ public static class EquipmentAggregator
             setCounts[node.Lifecycle.SetId] = setCounts.GetValueOrDefault(node.Lifecycle.SetId) + 1;
         }
 
-        ApplyEffects(node.Effects, statTotals, talents);
+        ApplyEffects(node.Effects, rawAttributes, talents);
 
         if (node is ContainerItem container)
         {
             foreach (var child in container.Children)
             {
-                CollectFromNode(child, statTotals, talents, setCounts);
+                CollectFromNode(child, rawAttributes, talents, setCounts);
             }
         }
     }
 
     private static void ApplyEffects(
         ImmutableArray<ItemEffect> effects,
-        Dictionary<CharacterAttributeId, double> statTotals,
+        ImmutableArray<CharacterAttribute>.Builder rawAttributes,
         ImmutableArray<Talent>.Builder talents)
     {
         foreach (var effect in effects)
         {
             switch (effect.Value)
             {
-                case ItemStatBonus stat:
-                    statTotals[stat.Attribute] = statTotals.GetValueOrDefault(stat.Attribute) + stat.Value;
+                case CharacterAttribute attr:
+                    rawAttributes.Add(attr);
                     break;
 
                 case GrantedTalent granted:

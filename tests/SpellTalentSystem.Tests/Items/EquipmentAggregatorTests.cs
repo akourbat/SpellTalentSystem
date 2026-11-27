@@ -38,9 +38,9 @@ public class EquipmentAggregatorTests
             category: new UpgradeCategory(new StatAffix()),
             effects:
             [
-                new ItemStatBonus(new PrimaryAttribute(new Power()), 251),
-                new ItemStatBonus(new PrimaryAttribute(new Precision()), 179),
-                new ItemStatBonus(new SecondaryAttribute(new Ferocity()), 179)
+                new PrimaryAttribute(new Power(StatValue<double>.FromFlat(251))),
+                new PrimaryAttribute(new Precision(StatValue<double>.FromFlat(179))),
+                new SecondaryAttribute(new Ferocity(StatValue<double>.FromFlat(179)))
             ]);
 
         var sigilOfForce = new LeafItem(
@@ -55,7 +55,7 @@ public class EquipmentAggregatorTests
             category: new UpgradeCategory(new Infusion()),
             effects:
             [
-                new ItemStatBonus(new PrimaryAttribute(new Power()), 5)
+                new PrimaryAttribute(new Power(StatValue<double>.FromFlat(5)))
             ]);
 
         var greatsword = new ContainerItem(
@@ -66,16 +66,16 @@ public class EquipmentAggregatorTests
             children: [berserkerAffix, sigilOfForce, mightyInfusion],
             effects:
             [
-                new ItemStatBonus(new SpecialAttribute(new WeaponStrength()), 1100)
+                new SpecialAttribute(new WeaponStrength(StatValue<double>.FromBase(1100)))
             ],
             lifecycle: new ItemLifecycle(RequiredLevel: 80, ItemLevel: 80, Rarity: ItemRarity.Ascended));
 
         var result = EquipmentAggregator.Aggregate([greatsword]);
 
-        Assert.Equal(256, result.GetStatTotal(new PrimaryAttribute(new Power())));
-        Assert.Equal(179, result.GetStatTotal(new PrimaryAttribute(new Precision())));
-        Assert.Equal(179, result.GetStatTotal(new SecondaryAttribute(new Ferocity())));
-        Assert.Equal(1100, result.GetStatTotal(new SpecialAttribute(new WeaponStrength())));
+        Assert.Equal(256, result.GetAttributeBucket(AttributeKind.Power).Resolve());
+        Assert.Equal(179, result.GetAttributeBucket(AttributeKind.Precision).Resolve());
+        Assert.Equal(179, result.GetAttributeBucket(AttributeKind.Ferocity).Resolve());
+        Assert.Equal(1100, result.GetAttributeBucket(AttributeKind.WeaponStrength).Resolve());
         Assert.Single(result.GrantedTalents, t => t.Id == "talent.sigil_force");
     }
 
@@ -84,21 +84,17 @@ public class EquipmentAggregatorTests
     {
         var sixPieceTalent = CreateDummyTalent("talent.scholar_6pc", "Scholar 90% HP Bonus");
 
-        CharacterAttributeId power = new PrimaryAttribute(new Power());
-        CharacterAttributeId ferocity = new SecondaryAttribute(new Ferocity());
-        CharacterAttributeId defense = new SpecialAttribute(new Defense());
-
         var scholarSet = new ItemSetDefinition(
             SetId: "set.scholar",
             Name: "Superior Rune of the Scholar",
             Tiers:
             [
-                new SetBonusTier(1, [new ItemStatBonus(power, 25)]),
-                new SetBonusTier(2, [new ItemStatBonus(ferocity, 35)]),
-                new SetBonusTier(3, [new ItemStatBonus(power, 50)]),
-                new SetBonusTier(4, [new ItemStatBonus(ferocity, 65)]),
-                new SetBonusTier(5, [new ItemStatBonus(power, 100)]),
-                new SetBonusTier(6, [new ItemStatBonus(ferocity, 125), new GrantedTalent(sixPieceTalent)])
+                new SetBonusTier(1, [new PrimaryAttribute(new Power(StatValue<double>.FromFlat(25)))]),
+                new SetBonusTier(2, [new SecondaryAttribute(new Ferocity(StatValue<double>.FromFlat(35)))]),
+                new SetBonusTier(3, [new PrimaryAttribute(new Power(StatValue<double>.FromFlat(50)))]),
+                new SetBonusTier(4, [new SecondaryAttribute(new Ferocity(StatValue<double>.FromFlat(65)))]),
+                new SetBonusTier(5, [new PrimaryAttribute(new Power(StatValue<double>.FromFlat(100)))]),
+                new SetBonusTier(6, [new SecondaryAttribute(new Ferocity(StatValue<double>.FromFlat(125))), new GrantedTalent(sixPieceTalent)])
             ]);
 
         ContainerItem MakeArmorPiece(ArmorPiece piece, double baseDefense, double piecePower)
@@ -107,7 +103,7 @@ public class EquipmentAggregatorTests
                 id: $"affix.{piece}",
                 name: "Berserker Insignia",
                 category: new UpgradeCategory(new StatAffix()),
-                effects: [new ItemStatBonus(power, piecePower)]);
+                effects: [new PrimaryAttribute(new Power(StatValue<double>.FromFlat(piecePower)))]);
 
             var rune = new LeafItem(
                 id: $"rune.scholar.{piece}",
@@ -121,11 +117,10 @@ public class EquipmentAggregatorTests
                 category: new ArmorCategory(new HeavyArmor(), piece),
                 maxChildSlots: 2,
                 children: [affix, rune],
-                effects: [new ItemStatBonus(defense, baseDefense)],
+                effects: [new SpecialAttribute(new Defense(StatValue<double>.FromBase(baseDefense)))],
                 lifecycle: new ItemLifecycle(RequiredLevel: 80, ItemLevel: 80, Rarity: ItemRarity.Ascended));
         }
 
-        // Equip 4 pieces -> unlocks 1pc, 2pc, 3pc, 4pc (75 Power, 100 Ferocity)
         var fourPieces = new Item[]
         {
             MakeArmorPiece(new Helm(), 100, 60),
@@ -136,11 +131,10 @@ public class EquipmentAggregatorTests
 
         var partialResult = EquipmentAggregator.Aggregate(fourPieces, [scholarSet]);
         Assert.Equal(4, partialResult.ActiveSetPieceCounts["set.scholar"]);
-        Assert.Equal(290 + 75, partialResult.GetStatTotal(power));
-        Assert.Equal(100, partialResult.GetStatTotal(ferocity));
+        Assert.Equal(290 + 75, partialResult.GetAttributeBucket(AttributeKind.Power).Resolve());
+        Assert.Equal(100, partialResult.GetAttributeBucket(AttributeKind.Ferocity).Resolve());
         Assert.Empty(partialResult.GrantedTalents);
 
-        // Equip all 6 pieces -> unlocks all 6 tiers (175 Power, 225 Ferocity + 6pc Talent)
         var sixPieces = new Item[]
         {
             MakeArmorPiece(new Helm(), 100, 60),
@@ -153,9 +147,9 @@ public class EquipmentAggregatorTests
 
         var fullResult = EquipmentAggregator.Aggregate(sixPieces, [scholarSet]);
         Assert.Equal(6, fullResult.ActiveSetPieceCounts["set.scholar"]);
-        Assert.Equal(425 + 175, fullResult.GetStatTotal(power));
-        Assert.Equal(225, fullResult.GetStatTotal(ferocity));
-        Assert.Equal(920, fullResult.GetStatTotal(defense));
+        Assert.Equal(425 + 175, fullResult.GetAttributeBucket(AttributeKind.Power).Resolve());
+        Assert.Equal(225, fullResult.GetAttributeBucket(AttributeKind.Ferocity).Resolve());
+        Assert.Equal(920, fullResult.GetAttributeBucket(AttributeKind.Defense).Resolve());
         Assert.Single(fullResult.GrantedTalents, t => t.Id == "talent.scholar_6pc");
     }
 
@@ -168,9 +162,11 @@ public class EquipmentAggregatorTests
             nature: new HealingNature(new DirectHealing()),
             targeting: new SelfTarget(),
             delivery: new InstantDelivery(),
-            effect: new DirectHeal(BaseHeal: 250.0, Coefficient: 0.0),
-            castTimeSeconds: 0.0,
-            cooldownSeconds: 30.0);
+            effect: new DirectHeal(
+                BaseHeal: StatValue<double>.FromBase(250.0),
+                Coefficient: StatValue<double>.FromBase(0.0)),
+            castTimeSeconds: StatValue<double>.FromBase(0.0),
+            cooldownSeconds: StatValue<double>.FromBase(30.0));
 
         var potion = new LeafItem(
             id: "con.healing_potion",

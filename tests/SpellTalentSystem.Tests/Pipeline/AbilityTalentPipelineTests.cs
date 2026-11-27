@@ -63,7 +63,7 @@ public sealed class AbilityTalentPipelineTests
             Apply: root => root.TransformTree(node => node.MapEffect(
                 n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
                 eff => eff.Value is DirectDamage dmg
-                    ? dmg with { BaseDamage = dmg.BaseDamage.MultiplyMore(1.10) }
+                    ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.10) }
                     : eff)));
 
         var forward = AbilityTalentPipeline.ApplyTalentsAndExpand(
@@ -82,9 +82,8 @@ public sealed class AbilityTalentPipelineTests
         Assert.Equal(forwardDmg.BaseDamage, reversedDmg.BaseDamage);
         Assert.Equal(250.0, forwardDmg.BaseDamage.Base);
         Assert.Equal(50.0, forwardDmg.BaseDamage.FlatModifier);
-        Assert.Equal(0.20, forwardDmg.BaseDamage.IncreasedPercent, precision: 6);
-        Assert.Equal(1.10, forwardDmg.BaseDamage.MoreMultiplier, precision: 6);
-        Assert.Equal(396.0, forwardDmg.BaseDamage.Resolve(), precision: 6);
+        Assert.Equal(0.30, forwardDmg.BaseDamage.IncreasedPercent, precision: 6);
+        Assert.Equal(390.0, forwardDmg.BaseDamage.Resolve(), precision: 6);
     }
 
     [Fact]

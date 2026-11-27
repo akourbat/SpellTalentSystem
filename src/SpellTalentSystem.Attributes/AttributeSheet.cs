@@ -1,127 +1,121 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using SpellTalentSystem.Abilities;
 
 namespace SpellTalentSystem.Attributes;
 
 /// <summary>
-/// Immutable, resolved character attribute sheet storing enriched <see cref="StatValue{T}"/>
-/// buckets for every Primary, Secondary, Derived, and Special attribute.
+/// Holds composite <see cref="StatValue{Double}"/> buckets aggregated from Base/Leveling,
+/// Equipment, Talents, and Boons, resolving final numbers only when queried.
 /// </summary>
-public sealed record AttributeSheet(ImmutableDictionary<CharacterAttributeId, StatValue<double>> Stats)
+public sealed record AttributeSheet
 {
-    public StatValue<double> GetStat(CharacterAttributeId id) =>
-        Stats.TryGetValue(id, out var stat) ? stat : StatValue<double>.FromBase(0.0);
+    public AttributeSheet(IEnumerable<CharacterAttribute>? attributes = null)
+    {
+        var aggregated = attributes is null
+            ? ImmutableArray<CharacterAttribute>.Empty
+            : CharacterAttribute.Aggregate(attributes);
 
-    public double GetResolved(CharacterAttributeId id) =>
-        GetStat(id).Resolve();
+        Attributes = aggregated.ToImmutableDictionary(a => a.Kind, a => a.Stat);
+    }
+
+    public ImmutableDictionary<AttributeKind, StatValue<double>> Attributes { get; init; }
+
+    public StatValue<double> GetBucket(AttributeKind kind) =>
+        Attributes.TryGetValue(kind, out var stat) ? stat : default;
+
+    public double GetResolved(AttributeKind kind) =>
+        GetBucket(kind).Resolve();
 
     /// <summary>
-    /// Evaluates a complete <see cref="AttributeSheet"/> in three deterministic passes:
-    /// 1. Baseline + direct commutative modifiers on Primary, Secondary, Special, and Derived overrides.
-    /// 2. Non-chaining GW2 stat conversions (<see cref="AttributeConversion"/>) added as flat bonuses.
-    /// 3. GW2 Derived Attribute formulas (Armor, MaxHealth, CritChance, CritDamage, Condition/Boon Duration).
+    /// Combines this sheet with additional attribute deltas (e.g., from Equipment, Talents, or Boons),
+    /// keeping Base, Flat, and % buckets separate.
     /// </summary>
-    public static AttributeSheet Resolve(
-        CharacterBaseline baseline,
-        IEnumerable<AttributeModifier> modifiers,
-        IEnumerable<AttributeConversion>? conversions = null)
+    public AttributeSheet CombineWith(IEnumerable<CharacterAttribute> deltas)
     {
-        var builder = ImmutableDictionary.CreateBuilder<CharacterAttributeId, StatValue<double>>();
-
-        // Seed Primary attributes (level-scaled)
-        CharacterAttributeId powerId = new PrimaryAttribute(new Power());
-        CharacterAttributeId precisionId = new PrimaryAttribute(new Precision());
-        CharacterAttributeId toughnessId = new PrimaryAttribute(new Toughness());
-        CharacterAttributeId vitalityId = new PrimaryAttribute(new Vitality());
-
-        builder[powerId] = StatValue<double>.FromBase(baseline.BasePrimaryStat);
-        builder[precisionId] = StatValue<double>.FromBase(baseline.BasePrimaryStat);
-        builder[toughnessId] = StatValue<double>.FromBase(baseline.BasePrimaryStat);
-        builder[vitalityId] = StatValue<double>.FromBase(baseline.BasePrimaryStat);
-
-        // Seed Secondary attributes (base 0)
-        CharacterAttributeId ferocityId = new SecondaryAttribute(new Ferocity());
-        CharacterAttributeId condDmgId = new SecondaryAttribute(new ConditionDamage());
-        CharacterAttributeId expertiseId = new SecondaryAttribute(new Expertise());
-        CharacterAttributeId concentrationId = new SecondaryAttribute(new Concentration());
-        CharacterAttributeId healingPowerId = new SecondaryAttribute(new HealingPower());
-
-        builder[ferocityId] = StatValue<double>.FromBase(0.0);
-        builder[condDmgId] = StatValue<double>.FromBase(0.0);
-        builder[expertiseId] = StatValue<double>.FromBase(0.0);
-        builder[concentrationId] = StatValue<double>.FromBase(0.0);
-        builder[healingPowerId] = StatValue<double>.FromBase(0.0);
-
-        // Seed Special defaults
-        CharacterAttributeId defenseId = new SpecialAttribute(new Defense());
-        CharacterAttributeId moveSpeedId = new SpecialAttribute(new MovementSpeed());
-        CharacterAttributeId healthPctId = new SpecialAttribute(new HealthPercent());
-        CharacterAttributeId endurancePctId = new SpecialAttribute(new EndurancePercent());
-
-        builder[defenseId] = StatValue<double>.FromBase(0.0);
-        builder[moveSpeedId] = StatValue<double>.FromBase(1.0);
-        builder[healthPctId] = StatValue<double>.FromBase(1.0);
-        builder[endurancePctId] = StatValue<double>.FromBase(1.0);
-
-        // Pass 1: Apply all direct commutative modifiers
-        foreach (var mod in modifiers)
-        {
-            var current = builder.TryGetValue(mod.Attribute, out var existing)
-                ? existing
-                : StatValue<double>.FromBase(0.0);
-            builder[mod.Attribute] = mod.ApplyTo(current);
-        }
-
-        // Pass 2: Apply GW2 conversions from Pass 1 resolved snapshots (non-chaining)
-        if (conversions is not null)
-        {
-            var preConversionSnapshot = builder.ToImmutable();
-            foreach (var conv in conversions)
-            {
-                double sourceResolved = preConversionSnapshot.TryGetValue(conv.SourceAttribute, out var srcStat)
-                    ? srcStat.Resolve()
-                    : 0.0;
-
-                double grantedFlat = sourceResolved * conv.Ratio;
-                if (grantedFlat == 0.0)
-                    continue;
-
-                var targetStat = builder.TryGetValue(conv.TargetAttribute, out var existingTarget)
-                    ? existingTarget
-                    : StatValue<double>.FromBase(0.0);
-                builder[conv.TargetAttribute] = targetStat.AddFlat(grantedFlat);
-            }
-        }
-
-        // Pass 3: Compute GW2 Derived Attributes from resolved Primary/Secondary stats
-        // (preserving any direct flat/%/more modifiers placed on Derived attributes by traits/boons)
-        double toughness = builder[toughnessId].Resolve();
-        double defense = builder[defenseId].Resolve();
-        double vitality = builder[vitalityId].Resolve();
-        double precision = builder[precisionId].Resolve();
-        double ferocity = builder[ferocityId].Resolve();
-        double expertise = builder[expertiseId].Resolve();
-        double concentration = builder[concentrationId].Resolve();
-
-        SetDerivedBase(builder, new DerivedAttribute(new Armor()), toughness + defense);
-        SetDerivedBase(builder, new DerivedAttribute(new MaxHealth()), baseline.ProfessionBaseHealth + (vitality * 10.0));
-        SetDerivedBase(builder, new DerivedAttribute(new CriticalChance()), Math.Clamp(0.05 + ((precision - 1000.0) / 2100.0), 0.0, 1.0));
-        SetDerivedBase(builder, new DerivedAttribute(new CriticalDamage()), 1.50 + (ferocity / 1500.0));
-        SetDerivedBase(builder, new DerivedAttribute(new ConditionDuration()), Math.Min(1.0, expertise / 1500.0));
-        SetDerivedBase(builder, new DerivedAttribute(new BoonDuration()), Math.Min(1.0, concentration / 1500.0));
-
-        return new AttributeSheet(builder.ToImmutable());
+        var current = Attributes.Select(kvp => CharacterAttribute.FromKind(kvp.Key, kvp.Value));
+        return new AttributeSheet(current.Concat(deltas));
     }
 
-    private static void SetDerivedBase(
-        ImmutableDictionary<CharacterAttributeId, StatValue<double>>.Builder builder,
-        CharacterAttributeId id,
-        double computedBase)
+    // --- Final Derived Combat Resolutions ---
+
+    public double GetPower() => GetResolved(AttributeKind.Power);
+    public double GetPrecision() => GetResolved(AttributeKind.Precision);
+    public double GetToughness() => GetResolved(AttributeKind.Toughness);
+    public double GetVitality() => GetResolved(AttributeKind.Vitality);
+    public double GetFerocity() => GetResolved(AttributeKind.Ferocity);
+    public double GetConditionDamage() => GetResolved(AttributeKind.ConditionDamage);
+    public double GetHealingPower() => GetResolved(AttributeKind.HealingPower);
+    public double GetExpertise() => GetResolved(AttributeKind.Expertise);
+    public double GetConcentration() => GetResolved(AttributeKind.Concentration);
+
+    /// <summary>
+    /// Resolves total Critical Chance: CriticalChance bucket (base + flat% + inc%)
+    /// plus Precision conversion ((Precision - 1000) / 2100.0).
+    /// </summary>
+    public double GetCriticalChance()
     {
-        builder[id] = builder.TryGetValue(id, out var existingWithTraitBonuses)
-            ? existingWithTraitBonuses with { Base = computedBase }
-            : StatValue<double>.FromBase(computedBase);
+        var baseCrit = GetResolved(AttributeKind.CriticalChance);
+        var precisionBonus = Math.Max(0.0, GetPrecision() - 1000.0) / 2100.0;
+        return Math.Clamp(baseCrit + precisionBonus, 0.0, 1.0);
     }
+
+    /// <summary>
+    /// Resolves total Critical Damage multiplier: CriticalDamage bucket (default 1.50)
+    /// plus Ferocity conversion (Ferocity / 1500.0).
+    /// </summary>
+    public double GetCriticalDamageMultiplier()
+    {
+        var baseCritDmg = GetResolved(AttributeKind.CriticalDamage);
+        var ferocityBonus = GetFerocity() / 1500.0;
+        return baseCritDmg + ferocityBonus;
+    }
+
+    /// <summary>
+    /// Resolves total Boon Duration % bonus: BoonDuration bucket + Concentration conversion (Concentration / 1500.0).
+    /// </summary>
+    public double GetBoonDurationBonus()
+    {
+        var directBonus = GetResolved(AttributeKind.BoonDuration);
+        var concentrationBonus = GetConcentration() / 1500.0;
+        return directBonus + concentrationBonus;
+    }
+
+    /// <summary>
+    /// Resolves total Condition Duration % bonus: ConditionDuration bucket + Expertise conversion (Expertise / 1500.0).
+    /// </summary>
+    public double GetConditionDurationBonus()
+    {
+        var directBonus = GetResolved(AttributeKind.ConditionDuration);
+        var expertiseBonus = GetExpertise() / 1500.0;
+        return directBonus + expertiseBonus;
+    }
+
+    public double GetArmor() => GetToughness() + GetResolved(AttributeKind.Defense);
+
+    public double GetMaxHealth(double baseClassHealth = 1000.0) =>
+        baseClassHealth + (GetVitality() * 10.0);
+
+    /// <summary>
+    /// Resolves the final duration of an <see cref="ApplyBoon"/> effect by combining the ability's
+    /// composite <see cref="ApplyBoon.Duration"/> with the caster's resolved <see cref="GetBoonDurationBonus"/>.
+    /// </summary>
+    public TimeSpan ResolveBoonDuration(ApplyBoon boonEffect)
+    {
+        var skillDuration = boonEffect.Duration.Resolve();
+        var multiplier = 1.0 + GetBoonDurationBonus();
+        return TimeSpan.FromTicks((long)Math.Round(skillDuration.Ticks * multiplier));
+    }
+
+    public static AttributeSheet CreateLevel80Base() => new AttributeSheet(
+    [
+        new PrimaryAttribute(new Power(StatValue<double>.FromBase(1000))),
+        new PrimaryAttribute(new Precision(StatValue<double>.FromBase(1000))),
+        new PrimaryAttribute(new Toughness(StatValue<double>.FromBase(1000))),
+        new PrimaryAttribute(new Vitality(StatValue<double>.FromBase(1000))),
+        new SpecialAttribute(new CriticalChance(StatValue<double>.FromBase(0.05))),
+        new SpecialAttribute(new CriticalDamage(StatValue<double>.FromBase(1.50)))
+    ]);
 }
