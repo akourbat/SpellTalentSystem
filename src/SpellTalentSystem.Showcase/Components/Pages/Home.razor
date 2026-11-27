@@ -341,8 +341,7 @@
             builder.AddAttribute(4, "style", "font-size:0.75rem; color:#86efac; font-weight:400; margin-left:4px;");
             builder.AddContent(5, $"[Base {stat.Base:0.##}{unit}" +
                 (stat.FlatModifier != 0 ? $", +{stat.FlatModifier:0.##}" : "") +
-                (stat.IncreasedPercent != 0 ? $", +{stat.IncreasedPercent * 100:0.#}%" : "") +
-                (stat.MoreMultiplier != 1.0 ? $", x{stat.MoreMultiplier:0.##}" : "") + "]");
+                (stat.IncreasedPercent != 0 ? $", +{stat.IncreasedPercent * 100:0.#}%" : ""));
             builder.CloseElement();
         }
         builder.CloseElement();
