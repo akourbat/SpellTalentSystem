@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SpellTalentSystem.Abilities\SpellTalentSystem.Abilities.csproj" />
+    <ProjectReference Include="..\SpellTalentSystem.Pipeline\SpellTalentSystem.Pipeline.csproj" />
+  </ItemGroup>
+
+</Project>

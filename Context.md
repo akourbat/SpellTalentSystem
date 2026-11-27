@@ -1,21 +1,25 @@
-# SpellTalentSystem — Project Context
+# Project Context — SpellTalentSystem (`Option-2` Branch)
 
-## Tech Stack & Environment
-- **.NET 11 (`net11.0`)**, **C# 15** (using C# 15 `union` types), **DynamicData**, **System.Reactive**, **xUnit v3**, **Blazor** (`Home.razor`).
-- Branch: `Option-2` (stateless extension-based DynamicData pipeline).
+## Tech Stack & Conventions
+- **Runtime / Language**: .NET 11 (`TargetFramework: net11.0` in `Directory.Build.props`), C# 15 (`closed record`, `union` discriminated unions, positional `init` properties).
+- **Reactive Engine**: `DynamicData` (`SourceCache<T, TKey>`, `Transform`, `Merge`, `Bind`) + `System.Reactive`.
+- **Testing**: `xunit.v3` (`[Fact]`, `[Theory]`).
+- **Design Rules**:
+  - Immutable `record` / `readonly record struct` types with `ImmutableArray<T>`.
+  - Positional initialization for records; all properties **PascalCase**.
+  - `Nature` / `Category` DUs carry **zero hard numbers** (pure semantic classification).
 
-## Solution Projects
-1. `SpellTalentSystem.Abilities` — Pure domain primitives (`Ability`, `PrimaryAbility`, `DependentAbility`, C# 15 `union` types for `AbilityNature`, `AbilityTargeting`, `AbilityDelivery`, `AbilityEffect`, and commutative `StatValue<T>` buckets: `Base`, `FlatModifier`, `IncreasedPercent`, `MoreMultiplier`, `.Resolve()`). Zero external dependencies.
-2. `SpellTalentSystem.Pipeline` — Stateless reactive DynamicData extension pipeline (`Observable.Defer` + `SortAndBind` + `QueryWhenChanged` + `TransformOnObservable`) with structural-sharing tree transforms (`TransformTree`, `MapEffect`, `MapTargeting`, `MapPrimaryTiming`).
-3. `SpellTalentSystem.Attributes` — Character attribute sheet & modifiers (`AttributeSheet.cs`, `AttributeModifiers.cs`).
-4. `SpellTalentSystem.Tests` — xUnit v3 test suite wired into VS Code Test Explorer.
-5. Blazor Web App (`Components/Pages/Home.razor`) — Interactive UI visualizer.
+## Completed Modules & Diagrams
+- **`SpellTalentSystem.Abilities` & `SpellTalentSystem.Pipeline`**: `closed record Ability` (`PrimaryAbility` / `DependentAbility`), 4 orthogonal DUs (`Nature`, `Targeting`, `Delivery`, `Effect`), `StatValue<T>`, `CharacterAttributeId`, and stateless `AbilityTalentPipeline`. → See `docs/diagrams/abilities-pipeline.md`
+- **`SpellTalentSystem.Attributes`**: `AttributeSheet` resolving Primary (`Power`, `Precision`, `Toughness`, `Vitality`), Secondary (`Ferocity`, `HealingPower`, `ConditionDamage`, `Concentration`, `Expertise`), and Derived stats (`Armor`, `CritChance`, `CritDamage`, `MaxHealth`). → See `docs/diagrams/attributes.md`
+- **`SpellTalentSystem.Items`**: `closed record Item` (`ContainerItem` / `LeafItem`), 2-level `ItemCategory` DU of DUs, `ItemEffect` DU (`ItemStatBonus`, `GrantedTalent`, `UsableAbility`), `ItemLifecycle`, `ItemSetDefinition`, and `EquipmentAggregator`. → See `docs/diagrams/items-hierarchy.md` and `docs/diagrams/items-category.md`
+- **`SpellTalentSystem.Showcase`**: Interactive Blazor playground.
 
-## Core Design Principles
-- **Immutability & Structural Sharing:** All abilities, stats, and attributes are immutable records/structs. Untouched subtrees preserve reference equality.
-- **Commutative Stat Enrichment:** Numeric modifiers accumulate into commutative buckets (`FlatModifier`, `IncreasedPercent`, `MoreMultiplier`) so numeric talents are order-independent; `Priority` is reserved for structural/transformative talents.
-- **Reactive Purity:** Pipelines use `Observable.Defer` + DynamicData operators with zero `BehaviorSubject` state.
-- **Conditional & Item Architecture (Planned Next):**
-  - Lazy cast-time predicates (`ResolveForCast`) for caster-state modifiers (e.g., GW2 *Scholar*: +10% while HP > 90%).
-  - Reactive `.Watch(key)` + `.DistinctUntilChanged()` triggers for autonomous threshold reactions (e.g., cast *Lesser Regen* when HP < 50%, with ICD).
-  - `SpellTalentSystem.Items`: `EquipSlot` (TwoHand vs MainHand+OffHand mutual exclusion), weapon swaps, Rune set counts (1–6 pc), and Sigils projecting into `Attributes`, `_baseAbilities`, and `_stableTalents`.
+## Key Architectural Boundary
+- `SpellTalentSystem.Items` **does not** resolve final `AttributeSheet` values. `EquipmentAggregator.Aggregate(equippedItems, setDefinitions)` outputs raw `AggregatedStats` (`ImmutableArray<ItemStatBonus>`) and `GrantedTalents` (`ImmutableArray<Talent>`), ready to merge with the upcoming Boon system before final `AttributeSheet` and combat resolution.
+
+## Planned Next Milestones
+1. **Equipment Loadout & Category-Driven Validation (`SpellTalentSystem.Items`)**: `EquipmentLoadout` (slot assignment, weapon swaps, two-hand vs. main/off-hand occupancy, socket insertion rules derived from `ItemCategory` + `Lifecycle.RequiredLevel`).
+2. **Boon & Condition System (`SpellTalentSystem.Boons`)**: Stackable / intensity-based effects emitting `(ImmutableArray<ItemStatBonus>, ImmutableArray<Talent>)` to merge with `EquipmentAggregator`.
+3. **Reactive `AttributeSheet` + Cast-Time Conditionals (`ResolveForCast` & `.Watch(...)`)**: Combine Equipment + Boons + Base Stats into reactive `AttributeSheet`, supporting caster-state predicates (e.g., *Scholar* +5% damage while HP > 90%) and ICD threshold triggers.
+4. **Combat Resolution (`SpellTalentSystem.Combat`)**: Hit, crit, strike/condition damage, and healing evaluation using resolved `AttributeSheet` + talent-enhanced `Ability` trees.

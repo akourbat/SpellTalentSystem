@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SpellTalentSystem.Abilities\SpellTalentSystem.Abilities.csproj" />
     <ProjectReference Include="..\..\src\SpellTalentSystem.Pipeline\SpellTalentSystem.Pipeline.csproj" />
+    <ProjectReference Include="..\..\src\SpellTalentSystem.Items\SpellTalentSystem.Items.csproj" />
   </ItemGroup>
 
 </Project>

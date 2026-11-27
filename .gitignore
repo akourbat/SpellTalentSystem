@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+## AI hand-off file
+code_bundle.txt
+
 # dotenv files
 .env
 
