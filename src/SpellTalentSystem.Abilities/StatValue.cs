@@ -6,8 +6,7 @@ namespace SpellTalentSystem.Abilities;
 /// <summary>
 /// Universal composite value keeping Base, FlatModifier, and IncreasedPercent separate
 /// until final evaluation via <see cref="Resolve"/>.
-/// Raw numeric values are intentionally not implicitly convertible so every layer
-/// explicitly declares whether a value belongs to Base, FlatModifier, or IncreasedPercent.
+/// Raw values implicitly lift into the <see cref="Base"/> bucket at authoring/serialization boundaries.
 /// </summary>
 public readonly record struct StatValue<T>(
     T Base,
@@ -21,6 +20,8 @@ public readonly record struct StatValue<T>(
     public static StatValue<T> FromBase(T value) => new(Base: value);
     public static StatValue<T> FromFlat(T flat) => new(Base: default, FlatModifier: flat);
     public static StatValue<T> FromPercent(double increasedPercent) => new(Base: default, IncreasedPercent: increasedPercent);
+
+    public static implicit operator StatValue<T>(T baseValue) => FromBase(baseValue);
 
     public static StatValue<T> operator +(StatValue<T> left, StatValue<T> right) =>
         new(
@@ -46,6 +47,18 @@ internal static class StatValueMath<T> where T : struct
 
 public static class StatValueExtensions
 {
+    public static StatValue<double> AddFlat(this StatValue<double> stat, double flat) =>
+        stat with { FlatModifier = stat.FlatModifier + flat };
+
+    public static StatValue<int> AddFlat(this StatValue<int> stat, int flat) =>
+        stat with { FlatModifier = stat.FlatModifier + flat };
+
+    public static StatValue<TimeSpan> AddFlat(this StatValue<TimeSpan> stat, TimeSpan flat) =>
+        stat with { FlatModifier = stat.FlatModifier + flat };
+
+    public static StatValue<T> AddIncreased<T>(this StatValue<T> stat, double increasedPercent) where T : struct =>
+        stat with { IncreasedPercent = stat.IncreasedPercent + increasedPercent };
+
     public static double Resolve(this StatValue<double> stat) =>
         (stat.Base + stat.FlatModifier) * (1.0 + stat.IncreasedPercent);
 

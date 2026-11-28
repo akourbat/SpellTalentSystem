@@ -5,8 +5,8 @@ A C# (.NET 10, C# preview `union` discriminated unions, `closed record` hierarch
 
 ### Projects
 1. **`SpellTalentSystem.Abilities`**:
-   - **`StatValue<T>` (`readonly record struct`)**: Stack-allocated composite value `(Base, FlatModifier, IncreasedPercent)` for `double`, `int`, and `TimeSpan`.
-     - **Strict Construction**: Implicit conversion from raw `T` is removed; callers must construct via `StatValue<T>.FromBase(...)`, `FromFlat(...)`, `FromPercent(...)`, or named constructor args so every layer explicitly declares its bucket.
+    - **`StatValue<T>` (`readonly record struct`)**: Stack-allocated composite value `(Base, FlatModifier, IncreasedPercent)` for `double`, `int`, and `TimeSpan`.
+     - **Boundary Ergonomics**: Implicit conversion `T -> StatValue<T>` lifts raw values into `Base` at authoring/serialization boundaries, alongside `FromBase(...)`, `FromFlat(...)`, `FromPercent(...)`, and `.AddFlat(...)` / `.AddIncreased(...)` helpers.
      - **Uniform Composition (`+`)**: `left + right` sums `Base + Base`, `FlatModifier + FlatModifier`, and `IncreasedPercent + IncreasedPercent` across Talents, Gear, and Attributes.
      - **Final Evaluation**: `.Resolve()` computes `(Base + FlatModifier) * (1.0 + IncreasedPercent)`.
    - **`Ability` (`closed record`)**: `PrimaryAbility` (holds `CastTimeSeconds`, `CooldownSeconds`, and `SubAbilities`) vs. `DependentAbility` (triggered child sub-ability).
