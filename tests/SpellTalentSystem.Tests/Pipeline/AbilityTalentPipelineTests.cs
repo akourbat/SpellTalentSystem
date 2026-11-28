@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using DynamicData;
@@ -15,19 +16,26 @@ public sealed class AbilityTalentPipelineTests
             id: "frostbolt-chill",
             name: "Frostbite",
             nature: new SoftControlNature(new Chilled()),
-            targeting: new SingleTarget(1200.0, new Enemies()),
+            targeting: new SingleTarget(StatValue<double>.FromBase(1200.0), new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new ApplyStatus(DurationSeconds: 3.0, Stacks: 1));
+            effect: new ApplyStatus(
+                DurationSeconds: StatValue<double>.FromBase(3.0),
+                Stacks: StatValue<int>.FromBase(1)));
 
         return new PrimaryAbility(
             id: "frostbolt",
             name: "Frostbolt",
             nature: new ElementalNature(new Frost()),
-            targeting: new SingleTarget(1200.0, new Enemies()),
-            delivery: new ProjectileDelivery(Speed: 1600.0, Pierces: false, BounceCount: 0),
-            effect: new DirectDamage(BaseDamage: 250.0, Coefficient: 0.85),
-            castTimeSeconds: 1.0,
-            cooldownSeconds: 6.0,
+            targeting: new SingleTarget(StatValue<double>.FromBase(1200.0), new Enemies()),
+            delivery: new ProjectileDelivery(
+                Speed: StatValue<double>.FromBase(1600.0),
+                Pierces: false,
+                BounceCount: StatValue<int>.FromBase(0)),
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(250.0),
+                Coefficient: StatValue<double>.FromBase(0.85)),
+            castTimeSeconds: StatValue<double>.FromBase(1.0),
+            cooldownSeconds: StatValue<double>.FromBase(6.0),
             subAbilities: [chillSub]);
     }
 
@@ -36,6 +44,10 @@ public sealed class AbilityTalentPipelineTests
     {
         var frostbolt = CreateFrostbolt();
 
+        var flatBonus = StatValue<double>.FromFlat(50.0);
+        var inc20Bonus = StatValue<double>.FromPercent(0.20);
+        var inc10Bonus = StatValue<double>.FromPercent(0.10);
+
         var flatDamageTalent = new Talent(
             Id: "talent-flat-frost",
             Name: "Biting Cold",
@@ -43,7 +55,7 @@ public sealed class AbilityTalentPipelineTests
             Apply: root => root.TransformTree(node => node.MapEffect(
                 n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
                 eff => eff.Value is DirectDamage dmg
-                    ? dmg with { BaseDamage = dmg.BaseDamage.AddFlat(50.0) }
+                    ? dmg with { BaseDamage = dmg.BaseDamage + flatBonus }
                     : eff)));
 
         var increasedDamageTalent = new Talent(
@@ -53,7 +65,7 @@ public sealed class AbilityTalentPipelineTests
             Apply: root => root.TransformTree(node => node.MapEffect(
                 n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
                 eff => eff.Value is DirectDamage dmg
-                    ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.20) }
+                    ? dmg with { BaseDamage = dmg.BaseDamage + inc20Bonus }
                     : eff)));
 
         var moreDamageTalent = new Talent(
@@ -63,7 +75,7 @@ public sealed class AbilityTalentPipelineTests
             Apply: root => root.TransformTree(node => node.MapEffect(
                 n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
                 eff => eff.Value is DirectDamage dmg
-                    ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.10) }
+                    ? dmg with { BaseDamage = dmg.BaseDamage + inc10Bonus }
                     : eff)));
 
         var forward = AbilityTalentPipeline.ApplyTalentsAndExpand(
@@ -77,8 +89,6 @@ public sealed class AbilityTalentPipelineTests
         var forwardDmg = Assert.IsType<DirectDamage>(forward.ElementAt(0).Ability.Effect.Value);
         var reversedDmg = Assert.IsType<DirectDamage>(reversed.ElementAt(0).Ability.Effect.Value);
 
-        // Enriched buckets are identical regardless of application order:
-        // (250 + 50) * (1 + 0.20) * 1.10 = 396.0
         Assert.Equal(forwardDmg.BaseDamage, reversedDmg.BaseDamage);
         Assert.Equal(250.0, forwardDmg.BaseDamage.Base);
         Assert.Equal(50.0, forwardDmg.BaseDamage.FlatModifier);
@@ -90,8 +100,8 @@ public sealed class AbilityTalentPipelineTests
     public void TransformativeTalents_UsePriority_SoNatureConversionRunsBeforeElementalEnrichment()
     {
         var frostbolt = CreateFrostbolt();
+        var pyroBonus = StatValue<double>.FromPercent(0.25);
 
-        // Priority 0: Transformative talent converts Frost -> Fire
         var frostfireConversion = new Talent(
             Id: "transform-frostfire",
             Name: "Frostfire Infusion",
@@ -100,7 +110,6 @@ public sealed class AbilityTalentPipelineTests
                 ? p with { Nature = new ElementalNature(new Fire()) }
                 : root);
 
-        // Priority 100: Standard enrichment talent boosts all Fire spells by +25%
         var pyromancy = new Talent(
             Id: "enrich-pyromancy",
             Name: "Pyromancy",
@@ -108,7 +117,7 @@ public sealed class AbilityTalentPipelineTests
             Apply: root => root.TransformTree(node => node.MapEffect(
                 n => n.IsElement(new Fire()) && n.Effect.Value is DirectDamage,
                 eff => eff.Value is DirectDamage dmg
-                    ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.25) }
+                    ? dmg with { BaseDamage = dmg.BaseDamage + pyroBonus }
                     : eff)));
 
         var resolved = AbilityTalentPipeline.ApplyTalentsAndExpand(
@@ -133,13 +142,15 @@ public sealed class AbilityTalentPipelineTests
             name: "Shattering Nova",
             nature: new ElementalNature(new Frost()),
             targeting: new TargetCenteredAoE(
-                Radius: 300.0,
-                MaxTargets: 5,
+                Radius: StatValue<double>.FromBase(300.0),
+                MaxTargets: StatValue<int>.FromBase(5),
                 Allegiance: new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 180.0, Coefficient: 0.65),
-            castTimeSeconds: 0.0,
-            cooldownSeconds: 12.0);
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(180.0),
+                Coefficient: StatValue<double>.FromBase(0.65)),
+            castTimeSeconds: StatValue<double>.FromBase(0.0),
+            cooldownSeconds: StatValue<double>.FromBase(12.0));
 
         var shatteringCritTrait = new Talent(
             Id: "trait-shattering-nova",
@@ -159,7 +170,6 @@ public sealed class AbilityTalentPipelineTests
         var spawnedPrimary = Assert.IsType<PrimaryAbility>(spawnedNode.Ability);
         Assert.Equal(12.0, spawnedPrimary.CooldownSeconds.Resolve());
     }
-
     [Fact]
     public void ReactivePipeline_EmitsUpdatedTree_WhenTalentIsEquippedOrUnequipped()
     {
@@ -177,6 +187,7 @@ public sealed class AbilityTalentPipelineTests
         Assert.NotNull(latestTree);
         Assert.Equal(2, latestTree!.Value.Length);
 
+        var chillBonus = StatValue<double>.FromFlat(2.0);
         var extendChill = new Talent(
             Id: "talent-deep-freeze",
             Name: "Deep Freeze",
@@ -184,7 +195,7 @@ public sealed class AbilityTalentPipelineTests
             Apply: root => root.TransformTree(node => node.MapEffect(
                 n => n.Nature.Value is SoftControlNature(var ctrl) && ctrl.Value is Chilled,
                 eff => eff.Value is ApplyStatus status
-                    ? status with { DurationSeconds = status.DurationSeconds.AddFlat(2.0) }
+                    ? status with { DurationSeconds = status.DurationSeconds + chillBonus }
                     : eff)));
 
         activeTalents.AddOrUpdate(extendChill);
@@ -208,22 +219,31 @@ public sealed class AbilityTalentPipelineTests
             id: "chain-lightning",
             name: "Chain Lightning",
             nature: new ElementalNature(new Lightning()),
-            targeting: new SingleTarget(1200.0, new Enemies()),
-            delivery: new ChainDelivery(MaxBounces: 3, BounceRadius: 400.0),
-            effect: new DirectDamage(BaseDamage: 200.0, Coefficient: 0.75),
-            castTimeSeconds: 0.75,
-            cooldownSeconds: 8.0);
+            targeting: new SingleTarget(StatValue<double>.FromBase(1200.0), new Enemies()),
+            delivery: new ChainDelivery(
+                MaxBounces: StatValue<int>.FromBase(3),
+                BounceRadius: StatValue<double>.FromBase(400.0)),
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(200.0),
+                Coefficient: StatValue<double>.FromBase(0.75)),
+            castTimeSeconds: StatValue<double>.FromBase(0.75),
+            cooldownSeconds: StatValue<double>.FromBase(8.0));
 
         var staticDischarge = new PrimaryAbility(
             id: "static-discharge",
             name: "Static Discharge",
             nature: new ElementalNature(new Lightning()),
-            targeting: new PointBlankAoE(Radius: 240.0, MaxTargets: 5, Allegiance: new Enemies()),
+            targeting: new PointBlankAoE(
+                Radius: StatValue<double>.FromBase(240.0),
+                MaxTargets: StatValue<int>.FromBase(5),
+                Allegiance: new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 90.0, Coefficient: 0.40),
-            castTimeSeconds: 0.0,
-            cooldownSeconds: 4.0,
-            subAbilities: [chainLightning]); // Points back to chain-lightning!
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(90.0),
+                Coefficient: StatValue<double>.FromBase(0.40)),
+            castTimeSeconds: StatValue<double>.FromBase(0.0),
+            cooldownSeconds: StatValue<double>.FromBase(4.0),
+            subAbilities: [chainLightning]);
 
         var cyclicTrait = new Talent(
             Id: "trait-recursive-overload",
@@ -246,35 +266,45 @@ public sealed class AbilityTalentPipelineTests
             id: "ice-shard",
             name: "Ice Shard",
             nature: new ElementalNature(new Frost()),
-            targeting: new SingleTarget(900.0, new Enemies()),
+            targeting: new SingleTarget(StatValue<double>.FromBase(900.0), new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 60.0, Coefficient: 0.25));
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(60.0),
+                Coefficient: StatValue<double>.FromBase(0.25)));
 
         var frostPulse = new DependentAbility(
             id: "frost-pulse",
             name: "Frost Pulse",
             nature: new ElementalNature(new Frost()),
-            targeting: new PointBlankAoE(Radius: 250.0, MaxTargets: 5, Allegiance: new Enemies()),
+            targeting: new PointBlankAoE(
+                Radius: StatValue<double>.FromBase(250.0),
+                MaxTargets: StatValue<int>.FromBase(5),
+                Allegiance: new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 100.0, Coefficient: 0.45),
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(100.0),
+                Coefficient: StatValue<double>.FromBase(0.45)),
             subAbilities: [iceShard]);
 
         var glacialBarrage = new PrimaryAbility(
             id: "glacial-barrage",
             name: "Glacial Barrage",
             nature: new ElementalNature(new Frost()),
-            targeting: new SingleTarget(1200.0, new Enemies()),
-            delivery: new ProjectileDelivery(Speed: 1600.0, Pierces: false, BounceCount: 0),
-            effect: new DirectDamage(BaseDamage: 220.0, Coefficient: 0.80),
-            castTimeSeconds: 1.0,
-            cooldownSeconds: 6.0,
+            targeting: new SingleTarget(StatValue<double>.FromBase(1200.0), new Enemies()),
+            delivery: new ProjectileDelivery(
+                Speed: StatValue<double>.FromBase(1600.0),
+                Pierces: false,
+                BounceCount: StatValue<int>.FromBase(0)),
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(220.0),
+                Coefficient: StatValue<double>.FromBase(0.80)),
+            castTimeSeconds: StatValue<double>.FromBase(1.0),
+            cooldownSeconds: StatValue<double>.FromBase(6.0),
             subAbilities: [iceShard, frostPulse]);
 
         var resolved = AbilityTalentPipeline.ApplyTalentsAndExpand(glacialBarrage, []);
 
-        // Root + direct iceShard + frostPulse + nested iceShard = 4 nodes
         Assert.Equal(4, resolved.Length);
         Assert.Equal(2, resolved.Count(n => n.Ability.Id == "ice-shard"));
     }
-
 }

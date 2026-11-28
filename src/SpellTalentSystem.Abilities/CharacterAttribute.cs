@@ -100,8 +100,8 @@ public union CharacterAttribute(
     };
 
     /// <summary>
-    /// Combines multiple attribute deltas (from Base, Equipment, Talents, Boons) per <see cref="AttributeKind"/>,
-    /// preserving separate Base, FlatModifier, and IncreasedPercent buckets.
+    /// Combines multiple attribute deltas (from Base, Equipment, Talents, Boons) per <see cref="AttributeKind"/>
+    /// using <see cref="StatValue{Double}"/> addition, preserving separate Base, FlatModifier, and IncreasedPercent buckets.
     /// </summary>
     public static ImmutableArray<CharacterAttribute> Aggregate(IEnumerable<CharacterAttribute> attributes)
     {
@@ -111,7 +111,7 @@ public union CharacterAttribute(
         {
             var (kind, stat) = attr.Deconstruct();
             totals[kind] = totals.TryGetValue(kind, out var existing)
-                ? existing.Combine(stat)
+                ? existing + stat
                 : stat;
         }
 

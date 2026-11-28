@@ -22,16 +22,16 @@ public sealed record AggregatedEquipment(
 public static class EquipmentAggregator
 {
     public static AggregatedEquipment Aggregate(
-        IEnumerable<Item> equippedItems,
+        IEnumerable<Gear> equippedGear,
         IEnumerable<ItemSetDefinition>? setDefinitions = null)
     {
         var rawAttributes = ImmutableArray.CreateBuilder<CharacterAttribute>();
         var talents = ImmutableArray.CreateBuilder<Talent>();
         var setCounts = new Dictionary<string, int>(StringComparer.Ordinal);
 
-        foreach (var root in equippedItems)
+        foreach (var gear in equippedGear)
         {
-            CollectFromNode(root, rawAttributes, talents, setCounts);
+            CollectFromGear(gear, rawAttributes, talents, setCounts);
         }
 
         if (setDefinitions is not null)
@@ -54,30 +54,52 @@ public static class EquipmentAggregator
             ActiveSetPieceCounts: setCounts.ToImmutableDictionary());
     }
 
-    private static void CollectFromNode(
-        Item node,
+    private static void CollectFromGear(
+        Gear gear,
         ImmutableArray<CharacterAttribute>.Builder rawAttributes,
         ImmutableArray<Talent>.Builder talents,
         Dictionary<string, int> setCounts)
     {
-        if (!string.IsNullOrWhiteSpace(node.Lifecycle.SetId))
-        {
-            setCounts[node.Lifecycle.SetId] = setCounts.GetValueOrDefault(node.Lifecycle.SetId) + 1;
-        }
+        IncrementSetCount(gear.SetId, setCounts);
+        ApplyEffects(gear.BaseEffects, rawAttributes, talents);
 
-        ApplyEffects(node.Effects, rawAttributes, talents);
-
-        if (node is ContainerItem container)
+        foreach (var slot in gear.UpgradeSlots)
         {
-            foreach (var child in container.Children)
+            if (slot.Slotted is not null)
             {
-                CollectFromNode(child, rawAttributes, talents, setCounts);
+                CollectFromUpgrade(slot.Slotted, rawAttributes, talents, setCounts);
             }
         }
     }
 
+    private static void CollectFromUpgrade(
+        GearUpgrade upgrade,
+        ImmutableArray<CharacterAttribute>.Builder rawAttributes,
+        ImmutableArray<Talent>.Builder talents,
+        Dictionary<string, int> setCounts)
+    {
+        IncrementSetCount(upgrade.SetId, setCounts);
+        ApplyEffects(upgrade.Effects, rawAttributes, talents);
+
+        foreach (var slot in upgrade.UpgradeSlots)
+        {
+            if (slot.Slotted is not null)
+            {
+                CollectFromUpgrade(slot.Slotted, rawAttributes, talents, setCounts);
+            }
+        }
+    }
+
+    private static void IncrementSetCount(string? setId, Dictionary<string, int> setCounts)
+    {
+        if (!string.IsNullOrWhiteSpace(setId))
+        {
+            setCounts[setId] = setCounts.GetValueOrDefault(setId) + 1;
+        }
+    }
+
     private static void ApplyEffects(
-        ImmutableArray<ItemEffect> effects,
+        IEnumerable<ItemEffect> effects,
         ImmutableArray<CharacterAttribute>.Builder rawAttributes,
         ImmutableArray<Talent>.Builder talents)
     {

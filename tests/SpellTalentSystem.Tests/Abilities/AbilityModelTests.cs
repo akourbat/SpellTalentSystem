@@ -14,24 +14,28 @@ public sealed class AbilityModelTests
             name: "Searing Strike (Empower)",
             nature: new BoonNature(new Might()),
             targeting: new PointBlankAoE(
-                Radius: 300.0,
-                MaxTargets: 5,
+                Radius: StatValue<double>.FromBase(300.0),
+                MaxTargets: StatValue<int>.FromBase(5),
                 Allegiance: new Allies()),
             delivery: new InstantDelivery(),
-            effect: new ApplyStatus(DurationSeconds: 8.0, Stacks: 3));
+            effect: new ApplyStatus(
+                DurationSeconds: StatValue<double>.FromBase(8.0),
+                Stacks: StatValue<int>.FromBase(3)));
 
         var searingStrike = new PrimaryAbility(
             id: "searing-strike",
             name: "Searing Strike",
             nature: new ElementalNature(new Fire()),
             targeting: new PointBlankAoE(
-                Radius: 240.0,
-                MaxTargets: 5,
+                Radius: StatValue<double>.FromBase(240.0),
+                MaxTargets: StatValue<int>.FromBase(5),
                 Allegiance: new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 320.0, Coefficient: 1.15),
-            castTimeSeconds: 0.5,
-            cooldownSeconds: 8.0,
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(320.0),
+                Coefficient: StatValue<double>.FromBase(1.15)),
+            castTimeSeconds: StatValue<double>.FromBase(0.5),
+            cooldownSeconds: StatValue<double>.FromBase(8.0),
             subAbilities: [selfMightPulse]);
 
         Assert.Single(searingStrike.SubAbilities);
@@ -49,13 +53,15 @@ public sealed class AbilityModelTests
             name: "Shield Stance",
             nature: new DefensiveNature(new Block()),
             targeting: new SelfTarget(),
-            delivery: new ChanneledDelivery(DurationSeconds: 3.0, TickIntervalSeconds: 0.5),
+            delivery: new ChanneledDelivery(
+                DurationSeconds: StatValue<double>.FromBase(3.0),
+                TickIntervalSeconds: StatValue<double>.FromBase(0.5)),
             effect: new ModifyIncomingDamage(
                 Category: new AllDamageCategory(),
-                Multiplier: 0.0,
-                DurationSeconds: 3.0),
-            castTimeSeconds: 0.0,
-            cooldownSeconds: 25.0);
+                Multiplier: StatValue<double>.FromBase(0.0),
+                DurationSeconds: StatValue<double>.FromBase(3.0)),
+            castTimeSeconds: StatValue<double>.FromBase(0.0),
+            cooldownSeconds: StatValue<double>.FromBase(25.0));
 
         Assert.IsType<DefensiveNature>(shieldStance.Nature.Value);
         Assert.IsType<SelfTarget>(shieldStance.Targeting.Value);

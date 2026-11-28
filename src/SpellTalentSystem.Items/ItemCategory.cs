@@ -1,6 +1,7 @@
 namespace SpellTalentSystem.Items;
 
-// 1. Weapon
+// ==================== 1. GEAR CATEGORIES ====================
+
 public readonly record struct Sword;
 public readonly record struct Greatsword;
 public readonly record struct Dagger;
@@ -20,7 +21,6 @@ public union WeaponCategory(
     Sword, Greatsword, Dagger, Axe, Mace, Hammer,
     Staff, Scepter, Focus, Shield, Longbow, Shortbow, Pistol, Rifle);
 
-// 2. Armor (Weight + Piece paired in a 2-property record at level 2)
 public readonly record struct LightArmor;
 public readonly record struct MediumArmor;
 public readonly record struct HeavyArmor;
@@ -38,15 +38,34 @@ public union ArmorPiece(Helm, Shoulders, Chestpiece, Gloves, Leggings, Boots);
 
 public sealed record ArmorCategory(ArmorWeight Weight, ArmorPiece Piece);
 
-// 3. Trinket
 public readonly record struct Amulet;
 public readonly record struct Ring;
 public readonly record struct Accessory;
 public readonly record struct Backpiece;
+public readonly record struct Relic;
 
-public union TrinketCategory(Amulet, Ring, Accessory, Backpiece);
+public union TrinketCategory(Amulet, Ring, Accessory, Backpiece, Relic);
 
-// 4. Upgrade (socketable / enhancement leaves)
+/// <summary>
+/// Subset of item classifications representing equippable <see cref="Gear"/> (weapons, armor, trinkets, and relics).
+/// </summary>
+public union GearCategory(
+    WeaponCategory,
+    ArmorCategory,
+    TrinketCategory);
+
+// ==================== 2. GEAR UPGRADE CATEGORIES ====================
+
+public enum UpgradeKind
+{
+    StatAffix,
+    Sigil,
+    Rune,
+    Infusion,
+    Gem,
+    Enchantment
+}
+
 public readonly record struct StatAffix;
 public readonly record struct Sigil;
 public readonly record struct Rune;
@@ -54,45 +73,44 @@ public readonly record struct Infusion;
 public readonly record struct Gem;
 public readonly record struct Enchantment;
 
-public union UpgradeCategory(StatAffix, Sigil, Rune, Infusion, Gem, Enchantment);
+/// <summary>
+/// Classifications for socketable <see cref="GearUpgrade"/> items.
+/// </summary>
+public union UpgradeCategory(StatAffix, Sigil, Rune, Infusion, Gem, Enchantment)
+{
+    public UpgradeKind Kind => Value switch
+    {
+        StatAffix => UpgradeKind.StatAffix,
+        Sigil => UpgradeKind.Sigil,
+        Rune => UpgradeKind.Rune,
+        Infusion => UpgradeKind.Infusion,
+        Gem => UpgradeKind.Gem,
+        Enchantment => UpgradeKind.Enchantment,
+        _ => throw new InvalidOperationException($"Unsupported UpgradeCategory: {Value}")
+    };
+}
 
-// 5. Consumable
+// ==================== 3. CONSUMABLE CATEGORIES ====================
+
 public readonly record struct Potion;
 public readonly record struct Food;
 public readonly record struct UtilityOil;
 public readonly record struct Scroll;
 
+/// <summary>
+/// Classifications for materialized combat/buff <see cref="ConsumableItem"/> items.
+/// </summary>
 public union ConsumableCategory(Potion, Food, UtilityOil, Scroll);
 
-// 6. Material (crafting resources)
-public readonly record struct Ore;
-public readonly record struct Ingot;
-public readonly record struct Wood;
-public readonly record struct Plank;
-public readonly record struct Leather;
-public readonly record struct Cloth;
-public readonly record struct Herb;
-public readonly record struct Reagent;
+// ==================== 4. SIMPLE ITEM CATEGORIES ====================
 
-public union MaterialCategory(Ore, Ingot, Wood, Plank, Leather, Cloth, Herb, Reagent);
-
-// 7. Misc
-public readonly record struct QuestToken;
-public readonly record struct SalvageKit;
+public readonly record struct CraftingMaterial;
 public readonly record struct Trophy;
-public readonly record struct ContainerBag;
-
-public union MiscCategory(QuestToken, SalvageKit, Trophy, ContainerBag);
+public readonly record struct QuestItem;
+public readonly record struct SalvageKit;
+public readonly record struct CurrencyToken;
 
 /// <summary>
-/// Pure semantic classification answering "What is this item?".
-/// Carries zero numerical stats or restrictions.
+/// Simplified top-level classifications for non-equippable inventory items (<see cref="SimpleItem"/>).
 /// </summary>
-public union ItemCategory(
-    WeaponCategory,
-    ArmorCategory,
-    TrinketCategory,
-    UpgradeCategory,
-    ConsumableCategory,
-    MaterialCategory,
-    MiscCategory);
+public union SimpleCategory(CraftingMaterial, Trophy, QuestItem, SalvageKit, CurrencyToken);

@@ -22,7 +22,6 @@
     </header>
 
     <div style="display:grid; grid-template-columns: 380px 1fr; gap:24px; align-items:start;">
-        <!-- LEFT COLUMN: SELECTABLE TALENT TILES -->
         <section>
             <h2 style="font-size:1rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin:0 0 12px;">
                 Available Talents &amp; Traits
@@ -55,7 +54,6 @@
             </div>
         </section>
 
-        <!-- RIGHT COLUMN: LIVE RESOLVED ABILITY TREES -->
         <section>
             <h2 style="font-size:1rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin:0 0 12px;">
                 Resolved Ability Trees (@_resolvedTrees.Count)
@@ -170,40 +168,57 @@
             id: "frostbolt",
             name: "Frostbolt",
             nature: new ElementalNature(new Frost()),
-            targeting: new SingleTarget(1200.0, new Enemies()),
-            delivery: new ProjectileDelivery(Speed: 1600.0, Pierces: false, BounceCount: 0),
-            effect: new DirectDamage(BaseDamage: 250.0, Coefficient: 0.85),
-            castTimeSeconds: 1.0,
-            cooldownSeconds: 6.0,
+            targeting: new SingleTarget(StatValue<double>.FromBase(1200.0), new Enemies()),
+            delivery: new ProjectileDelivery(
+                Speed: StatValue<double>.FromBase(1600.0),
+                Pierces: false,
+                BounceCount: StatValue<int>.FromBase(0)),
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(250.0),
+                Coefficient: StatValue<double>.FromBase(0.85)),
+            castTimeSeconds: StatValue<double>.FromBase(1.0),
+            cooldownSeconds: StatValue<double>.FromBase(6.0),
             subAbilities:
             [
                 new DependentAbility(
                     id: "frostbolt-chill",
                     name: "Frostbite",
                     nature: new SoftControlNature(new Chilled()),
-                    targeting: new SingleTarget(1200.0, new Enemies()),
+                    targeting: new SingleTarget(StatValue<double>.FromBase(1200.0), new Enemies()),
                     delivery: new InstantDelivery(),
-                    effect: new ApplyStatus(DurationSeconds: 3.0, Stacks: 1))
+                    effect: new ApplyStatus(
+                        DurationSeconds: StatValue<double>.FromBase(3.0),
+                        Stacks: StatValue<int>.FromBase(1)))
             ]);
 
         var searingStrike = new PrimaryAbility(
             id: "searing-strike",
             name: "Searing Strike",
             nature: new ElementalNature(new Fire()),
-            targeting: new PointBlankAoE(Radius: 240.0, MaxTargets: 5, Allegiance: new Enemies()),
+            targeting: new PointBlankAoE(
+                Radius: StatValue<double>.FromBase(240.0),
+                MaxTargets: StatValue<int>.FromBase(5),
+                Allegiance: new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 320.0, Coefficient: 1.15),
-            castTimeSeconds: 0.5,
-            cooldownSeconds: 8.0,
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(320.0),
+                Coefficient: StatValue<double>.FromBase(1.15)),
+            castTimeSeconds: StatValue<double>.FromBase(0.5),
+            cooldownSeconds: StatValue<double>.FromBase(8.0),
             subAbilities:
             [
                 new DependentAbility(
                     id: "searing-strike-might",
                     name: "Searing Empower",
                     nature: new BoonNature(new Might()),
-                    targeting: new PointBlankAoE(Radius: 300.0, MaxTargets: 5, Allegiance: new Allies()),
+                    targeting: new PointBlankAoE(
+                        Radius: StatValue<double>.FromBase(300.0),
+                        MaxTargets: StatValue<int>.FromBase(5),
+                        Allegiance: new Allies()),
                     delivery: new InstantDelivery(),
-                    effect: new ApplyStatus(DurationSeconds: 8.0, Stacks: 3))
+                    effect: new ApplyStatus(
+                        DurationSeconds: StatValue<double>.FromBase(8.0),
+                        Stacks: StatValue<int>.FromBase(3)))
             ]);
 
         var shieldStance = new PrimaryAbility(
@@ -211,10 +226,15 @@
             name: "Shield Stance",
             nature: new DefensiveNature(new Block()),
             targeting: new SelfTarget(),
-            delivery: new ChanneledDelivery(DurationSeconds: 3.0, TickIntervalSeconds: 0.5),
-            effect: new ModifyIncomingDamage(new AllDamageCategory(), Multiplier: 0.0, DurationSeconds: 3.0),
-            castTimeSeconds: 0.0,
-            cooldownSeconds: 25.0);
+            delivery: new ChanneledDelivery(
+                DurationSeconds: StatValue<double>.FromBase(3.0),
+                TickIntervalSeconds: StatValue<double>.FromBase(0.5)),
+            effect: new ModifyIncomingDamage(
+                Category: new AllDamageCategory(),
+                Multiplier: StatValue<double>.FromBase(0.0),
+                DurationSeconds: StatValue<double>.FromBase(3.0)),
+            castTimeSeconds: StatValue<double>.FromBase(0.0),
+            cooldownSeconds: StatValue<double>.FromBase(25.0));
 
         foreach (var ability in new[] { frostbolt, searingStrike, shieldStance })
         {
@@ -229,11 +249,22 @@
             id: "trait-ice-nova",
             name: "Shattering Nova",
             nature: new ElementalNature(new Frost()),
-            targeting: new TargetCenteredAoE(Radius: 300.0, MaxTargets: 5, Allegiance: new Enemies()),
+            targeting: new TargetCenteredAoE(
+                Radius: StatValue<double>.FromBase(300.0),
+                MaxTargets: StatValue<int>.FromBase(5),
+                Allegiance: new Enemies()),
             delivery: new InstantDelivery(),
-            effect: new DirectDamage(BaseDamage: 180.0, Coefficient: 0.65),
-            castTimeSeconds: 0.0,
-            cooldownSeconds: 12.0);
+            effect: new DirectDamage(
+                BaseDamage: StatValue<double>.FromBase(180.0),
+                Coefficient: StatValue<double>.FromBase(0.65)),
+            castTimeSeconds: StatValue<double>.FromBase(0.0),
+            cooldownSeconds: StatValue<double>.FromBase(12.0));
+
+        var bitingColdDelta = StatValue<double>.FromFlat(50.0);
+        var glacialMasteryDelta = StatValue<double>.FromPercent(0.20);
+        var pyromancyDelta = StatValue<double>.FromPercent(0.25);
+        var deepFreezeDelta = StatValue<double>.FromFlat(2.0);
+        var expansiveBlastDelta = StatValue<double>.FromPercent(0.25);
 
         _catalog =
         [
@@ -248,35 +279,35 @@
                 new Talent("talent-biting-cold", "Biting Cold", 100,
                     root => root.TransformTree(node => node.MapEffect(
                         n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
-                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage.AddFlat(50.0) } : eff))),
+                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage + bitingColdDelta } : eff))),
                 "+50 Flat",
                 "Frost direct damage abilities gain +50 Base Damage."),
             new(
                 new Talent("talent-glacial-mastery", "Glacial Mastery", 100,
                     root => root.TransformTree(node => node.MapEffect(
                         n => n.IsElement(new Frost()) && n.Effect.Value is DirectDamage,
-                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.20) } : eff))),
+                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage + glacialMasteryDelta } : eff))),
                 "+20% Inc",
                 "Frost direct damage abilities gain +20% Increased Damage."),
             new(
                 new Talent("talent-pyromancy", "Pyromancy", 100,
                     root => root.TransformTree(node => node.MapEffect(
                         n => n.IsElement(new Fire()) && n.Effect.Value is DirectDamage,
-                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage.AddIncreased(0.25) } : eff))),
+                        eff => eff.Value is DirectDamage dmg ? dmg with { BaseDamage = dmg.BaseDamage + pyromancyDelta } : eff))),
                 "+25% Fire",
                 "Fire direct damage abilities gain +25% Increased Damage (works on Frostbolt if Frostfire Infusion is active!)."),
             new(
                 new Talent("talent-deep-freeze", "Deep Freeze", 100,
                     root => root.TransformTree(node => node.MapEffect(
                         n => n.Nature.Value is SoftControlNature(var c) && c.Value is Chilled,
-                        eff => eff.Value is ApplyStatus st ? st with { DurationSeconds = st.DurationSeconds.AddFlat(2.0) } : eff))),
+                        eff => eff.Value is ApplyStatus st ? st with { DurationSeconds = st.DurationSeconds + deepFreezeDelta } : eff))),
                 "+2s Chill",
                 "Increases Chilled application duration by +2.0 seconds."),
             new(
                 new Talent("talent-expansive-blast", "Expansive Blast", 100,
                     root => root.TransformTree(node => node.MapTargeting(
                         n => n.Targeting.Value is PointBlankAoE,
-                        tgt => tgt.Value is PointBlankAoE aoe ? aoe with { Radius = aoe.Radius.AddIncreased(0.25) } : tgt))),
+                        tgt => tgt.Value is PointBlankAoE aoe ? aoe with { Radius = aoe.Radius + expansiveBlastDelta } : tgt))),
                 "+25% AoE",
                 "Increases Point-Blank AoE radius by +25% across both harmful and beneficial pulses."),
             new(
@@ -341,7 +372,7 @@
             builder.AddAttribute(4, "style", "font-size:0.75rem; color:#86efac; font-weight:400; margin-left:4px;");
             builder.AddContent(5, $"[Base {stat.Base:0.##}{unit}" +
                 (stat.FlatModifier != 0 ? $", +{stat.FlatModifier:0.##}" : "") +
-                (stat.IncreasedPercent != 0 ? $", +{stat.IncreasedPercent * 100:0.#}%" : ""));
+                (stat.IncreasedPercent != 0 ? $", +{stat.IncreasedPercent * 100:0.#}%" : "") + "]");
             builder.CloseElement();
         }
         builder.CloseElement();
