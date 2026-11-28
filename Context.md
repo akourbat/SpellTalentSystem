@@ -5,7 +5,7 @@ A C# (.NET 10, C# preview `union` discriminated unions, `closed record` hierarch
 
 ### Projects
 1. **`SpellTalentSystem.Abilities`**:
-    - **`StatValue<T>` (`readonly record struct`)**: Stack-allocated composite value `(Base, FlatModifier, IncreasedPercent)` for `double`, `int`, and `TimeSpan`.
+   - **`StatValue<T>` (`readonly record struct`)**: Stack-allocated composite value `(Base, FlatModifier, IncreasedPercent)` for `double`, `int`, and `TimeSpan`.
      - **Boundary Ergonomics**: Implicit conversion `T -> StatValue<T>` lifts raw values into `Base` at authoring/serialization boundaries, alongside `FromBase(...)`, `FromFlat(...)`, `FromPercent(...)`, and `.AddFlat(...)` / `.AddIncreased(...)` helpers.
      - **Uniform Composition (`+`)**: `left + right` sums `Base + Base`, `FlatModifier + FlatModifier`, and `IncreasedPercent + IncreasedPercent` across Talents, Gear, and Attributes.
      - **Final Evaluation**: `.Resolve()` computes `(Base + FlatModifier) * (1.0 + IncreasedPercent)`.
@@ -20,13 +20,14 @@ A C# (.NET 10, C# preview `union` discriminated unions, `closed record` hierarch
 3. **`SpellTalentSystem.Attributes`**:
    - **`AttributeSheet`**: Stores un-collapsed `StatValue<double>` buckets per `AttributeKind` and evaluates derived combat stats (`EffectivePower`, `EffectiveCritChance`, `EffectiveCritDamage`, `EffectiveBoonDuration`, `EffectiveConditionDuration`, `EffectiveArmor`, `EffectiveMaxHealth`).
 
-4. **`SpellTalentSystem.Items`** *(Refactored)*:
+4. **`SpellTalentSystem.Items`**:
    - **`GameItem` (`closed record`)**: Shared root carrying only `Id`, `Name`, `Description`, and `ItemLifecycle` (`Rarity`, `Binding`, `IsBound`, `VendorCopper` — `ItemLevel` removed).
    - **`Gear` (`sealed record`)**: Equippable weapons, armor, trinkets, and `Relic`s (`GearCategory`). Holds `RequiredLevel`, `SetId`, `BaseEffects`, and explicit typed `ImmutableArray<UpgradeSlot>` (`WithSlot`, `WithSlotted`, `CollectEffects`).
    - **`GearUpgrade` (`sealed record`)**: Socketable enhancements (`UpgradeCategory`: `StatAffix`, `Sigil`, `Rune`, `Infusion`, `Gem`, `Enchantment`) carrying `CharacterAttribute` and/or `GrantedTalent` effects, plus optional nested `UpgradeSlots` restricted to `UpgradeKind.StatAffix`.
-   - **`ConsumableItem` (`sealed record`)**: Materialized combat/buff items (`ConsumableCategory`: `Potion`, `Food`, `UtilityOil`, `Scroll`) with `UsableAbility`, `Effects`, `SpoilDuration`, and `Charges`.
+   - **`ConsumableItem` (`sealed record`)**: Materialized combat/buff items (`ConsumableCategory`: `Potion`, `Food`, `UtilityOil`, `Scroll`) with `PrimaryAbility? Ability`, `Effects`, `SpoilDuration`, and `Charges`.
    - **`SimpleItem` (`sealed record`)**: Non-equippable inventory items (`SimpleCategory`: `CraftingMaterial`, `Trophy`, `QuestItem`, `SalvageKit`, `CurrencyToken`) with `MaxStackSize`.
    - **`UpgradeSlot` (`sealed record`)**: Explicit `(UpgradeKind AcceptedKind, GearUpgrade? Slotted)` enforcing socket compatibility at construction/slotting time.
+   - **`ItemEffect` (`union`)**: Pure 2-case union `(CharacterAttribute, GrantedTalent)` feeding Attributes and Talents uniformly.
    - **`EquipmentAggregator`**: Recursively traverses equipped `Gear`, slotted `GearUpgrade`s, nested `StatAffix`es, and `ItemSetDefinition` tier thresholds to produce `AggregatedEquipment` (`AggregatedAttributes`, `GrantedTalents`, `ActiveSetPieceCounts`).
 
 5. **`SpellTalentSystem.Showcase` & `SpellTalentSystem.Tests`**:
@@ -36,6 +37,6 @@ A C# (.NET 10, C# preview `union` discriminated unions, `closed record` hierarch
 ---
 
 ## Next Planned Milestones
-1. **Reactive Character Loadout Pipeline**: Connect `SourceCache<Gear, string>` + `SourceCache<Talent, string>` + base `AttributeSheet` + base `PrimaryAbility` trees so equipping/unequipping gear reactively updates both `AttributeSheet` and `ResolvedAbilityNode` trees (via `GrantedTalents` and `ConsumableItem` `UsableAbility`).
+1. **Reactive Character Loadout Pipeline**: Connect `SourceCache<Gear, string>` + `SourceCache<Talent, string>` + base `AttributeSheet` + base `PrimaryAbility` trees so equipping/unequipping gear reactively updates both `AttributeSheet` and `ResolvedAbilityNode` trees (via `GrantedTalents` and `ConsumableItem` `Ability`).
 2. **Combat Formula Resolution**: Evaluate a `ResolvedAbilityNode` against caster and target `AttributeSheet`s (direct damage, critical strikes, condition ticks, boon/condition durations).
 3. **Database Persistence DTOs**: Lightweight serializable snapshots for `Gear` and its `UpgradeSlots`.

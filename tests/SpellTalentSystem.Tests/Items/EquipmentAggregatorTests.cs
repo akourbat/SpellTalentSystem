@@ -243,7 +243,8 @@ public class EquipmentAggregatorTests
             name: "Minor Healing Potion",
             category: new ConsumableCategory(new Potion()),
             requiredLevel: 5,
-            usableAbility: new UsableAbility(healAbility, Charges: 1, ConsumeOnUse: true),
+            ability: healAbility,
+            charges: 1,
             spoilDuration: TimeSpan.FromHours(24),
             lifecycle: new ItemLifecycle(VendorCopper: 15));
 
@@ -254,7 +255,7 @@ public class EquipmentAggregatorTests
             maxStackSize: 250,
             lifecycle: new ItemLifecycle(Rarity: ItemRarity.Rare, VendorCopper: 250));
 
-        Assert.Equal("ability.minor_heal", potion.UsableAbility!.Ability.Id);
+        Assert.Equal("ability.minor_heal", potion.Ability!.Id);
         Assert.Equal(TimeSpan.FromHours(24), potion.SpoilDuration);
         Assert.IsType<SalvageKit>(salvageKit.Category.Value);
     }

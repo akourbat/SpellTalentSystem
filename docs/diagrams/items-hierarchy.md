@@ -17,7 +17,7 @@
 │───────────────│    │───────────────────│   │───────────────────│   │─────────────────│
 │ GearCategory  │    │ UpgradeCategory   │   │ ConsumableCategory│   │ SimpleCategory  │
 │ RequiredLevel │    │ RequiredLevel     │   │ RequiredLevel     │   │ MaxStackSize    │
-│ SetId?        │    │ SetId?            │   │ UsableAbility?    │   └─────────────────┘
+│ SetId?        │    │ SetId?            │   │ Ability?          │   └─────────────────┘
 │ BaseEffects   │    │ Effects           │   │ Effects           │
 │ UpgradeSlots ─┼───►│ UpgradeSlots ─────┼─┐ │ SpoilDuration?    │
 └───────────────┘    └───────────────────┘ │ │ Charges           │
@@ -33,11 +33,11 @@
 │ • UpgradeSlot(AcceptedKind, Slotted?)     │ • Rarity: ItemRarity                        │
 │ • ItemEffect:                             │ • Binding: BindingType                      │
 │   ├─ CharacterAttribute (StatValue<double>)│ • IsBound: bool                            │
-│   ├─ GrantedTalent(Talent)                │ • VendorCopper: long?                       │
-│   └─ UsableAbility(Ability, Charges, ...) │                                             │
-│                                           │   EquipmentAggregator.Aggregate(...)        │
-│ • ItemSetDefinition(SetId, Name, Tiers)   │   ├─► AggregatedAttributes (StatValue +)    │
-│ • SetBonusTier(RequiredPieces, Effects)   │   ├─► GrantedTalents (Talent[])             │
+│   └─ GrantedTalent(Talent)                │ • VendorCopper: long?                       │
+│                                           │                                             │
+│ • ItemSetDefinition(SetId, Name, Tiers)   │   EquipmentAggregator.Aggregate(...)        │
+│ • SetBonusTier(RequiredPieces, Effects)   │   ├─► AggregatedAttributes (StatValue +)    │
+│                                           │   ├─► GrantedTalents (Talent[])             │
 │                                           │   └─► ActiveSetPieceCounts                │
 └───────────────────────────────────────────┴─────────────────────────────────────────────┘
 ```
@@ -90,7 +90,7 @@ classDiagram
         <<sealed record>>
         +ConsumableCategory Category
         +int RequiredLevel
-        +UsableAbility? UsableAbility
+        +PrimaryAbility? Ability
         +ImmutableArray~ItemEffect~ Effects
         +TimeSpan? SpoilDuration
         +int Charges
@@ -113,7 +113,6 @@ classDiagram
         <<union>>
         +CharacterAttribute
         +GrantedTalent
-        +UsableAbility
     }
 
     GameItem <|-- Gear

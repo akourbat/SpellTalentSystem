@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using SpellTalentSystem.Abilities;
 
 namespace SpellTalentSystem.Items;
+
 
 /// <summary>
 /// Closed root of the item hierarchy carrying only metadata shared across all game items.
@@ -144,6 +146,7 @@ public sealed record GearUpgrade : GameItem
 /// <summary>
 /// Materialized combat or buff items (potions, food, utility oils, combat scrolls).
 /// </summary>
+// ConsumableItem in GameItem.cs
 public sealed record ConsumableItem : GameItem
 {
     public ConsumableItem(
@@ -152,7 +155,7 @@ public sealed record ConsumableItem : GameItem
         ConsumableCategory category,
         string description = "",
         int requiredLevel = 1,
-        UsableAbility? usableAbility = null,
+        PrimaryAbility? ability = null,
         ImmutableArray<ItemEffect> effects = default,
         TimeSpan? spoilDuration = null,
         int charges = 1,
@@ -161,7 +164,7 @@ public sealed record ConsumableItem : GameItem
     {
         Category = category;
         RequiredLevel = requiredLevel;
-        UsableAbility = usableAbility;
+        Ability = ability;
         Effects = effects.IsDefault ? ImmutableArray<ItemEffect>.Empty : effects;
         SpoilDuration = spoilDuration;
         Charges = charges;
@@ -169,11 +172,12 @@ public sealed record ConsumableItem : GameItem
 
     public ConsumableCategory Category { get; init; }
     public int RequiredLevel { get; init; }
-    public UsableAbility? UsableAbility { get; init; }
+    public PrimaryAbility? Ability { get; init; }
     public ImmutableArray<ItemEffect> Effects { get; init; }
     public TimeSpan? SpoilDuration { get; init; }
     public int Charges { get; init; }
 }
+
 
 /// <summary>
 /// Non-equippable inventory items (crafting materials, trophies, quest items, salvage kits, currency tokens).
