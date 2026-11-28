@@ -1,40 +1,41 @@
-# Project Context — SpellTalentSystem (`Option-2` Branch)
+# Spell & Talent System — Architecture & Progress Context
 
-## Tech Stack & Conventions
-- **Runtime / Language**: .NET 11 (`TargetFramework: net11.0` in `Directory.Build.props`), C# 15 (`closed record`, `union` discriminated unions, positional `init` properties).
-- **Reactive Engine**: `DynamicData` (`SourceCache<T, TKey>`, `Transform`, `Merge`, `Bind`) + `System.Reactive`.
-- **Testing**: `xunit.v3` (`[Fact]`, `[Theory]`).
-- **Design Rules**:
-  - Immutable `record` / `readonly record struct` types with `ImmutableArray<T>`.
-  - Positional initialization for records; all properties **PascalCase**.
-  - `Nature` / `Category` DUs carry **zero hard numbers** (pure semantic classification).
-  - Every modifiable numeric value uses `StatValue<T>(Base, FlatModifier, IncreasedPercent)` keeping Base, Flat, and % buckets separate until `.Resolve()` is called.
+## Solution Overview
+A C# (.NET 10, C# preview `union` discriminated unions, `closed record` hierarchies, `ImmutableArray<T>`, and `DynamicData` reactive streams) RPG combat, attribute, talent, and equipment engine.
 
-## Completed Modules & Diagrams
-- **`SpellTalentSystem.Abilities`**:
-  - `closed record Ability` (`PrimaryAbility` / `DependentAbility`), 4 orthogonal DUs (`AbilityNature`, `Targeting`, `Delivery`, `AbilityEffect` including `ApplyBoon(BoonType, StatValue<TimeSpan>, StatValue<int>)`).
-  - `StatValue<T>` (`double`, `int`, `TimeSpan`) with monoid `Combine`, `AddFlat`, `AddIncreased`, implicit `T` conversion, and `.Resolve()` -> `(Base + FlatModifier) * (1.0 + IncreasedPercent)`.
-  - `CharacterAttribute` DU (`PrimaryAttribute`, `SecondaryAttribute`, `SpecialAttribute`) keyed by `AttributeKind` with pattern-matched `Deconstruct()` / `FromKind()` and monoid `CharacterAttribute.Aggregate(...)`.
-  - Diagram: `docs/diagrams/abilities-pipeline.md`
-- **`SpellTalentSystem.Attributes`**:
-  - `AttributeSheet` holding `ImmutableDictionary<AttributeKind, StatValue<double>>` aggregated from Base/Leveling, Equipment, Talents, and Boons.
-  - Evaluates final values and cross-stat conversions (`Precision` -> `CriticalChance`, `Ferocity` -> `CriticalDamage`, `Concentration` -> `BoonDuration`, `Expertise` -> `ConditionDuration`, `Toughness + Defense` -> `Armor`, `Vitality` -> `MaxHealth`, `ResolveBoonDuration(ApplyBoon)`) **only when queried**.
-  - Diagram: `docs/diagrams/attributes.md`
-- **`SpellTalentSystem.Pipeline`**:
-  - Stateless reactive `AbilityTalentPipeline` applying priority-ordered `Talent` tree transformations via `DynamicData`.
-  - Diagram: `docs/diagrams/abilities-pipeline.md`
-- **`SpellTalentSystem.Items`**:
-  - `closed record Item` (`ContainerItem` / `LeafItem`), 2-level `ItemCategory` DU of DUs, `ItemEffect` DU (`CharacterAttribute`, `GrantedTalent`, `UsableAbility`), `ItemLifecycle`, `ItemSetDefinition`, and `EquipmentAggregator`.
-  - Diagrams: `docs/diagrams/items-hierarchy.md` and `docs/diagrams/items-category.md`
-- **`SpellTalentSystem.Showcase` & `SpellTalentSystem.Tests`**:
-  - Interactive Blazor playground and full green xUnit v3 test suite.
+### Projects
+1. **`SpellTalentSystem.Abilities`**:
+   - **`StatValue<T>` (`readonly record struct`)**: Stack-allocated composite value `(Base, FlatModifier, IncreasedPercent)` for `double`, `int`, and `TimeSpan`.
+     - **Strict Construction**: Implicit conversion from raw `T` is removed; callers must construct via `StatValue<T>.FromBase(...)`, `FromFlat(...)`, `FromPercent(...)`, or named constructor args so every layer explicitly declares its bucket.
+     - **Uniform Composition (`+`)**: `left + right` sums `Base + Base`, `FlatModifier + FlatModifier`, and `IncreasedPercent + IncreasedPercent` across Talents, Gear, and Attributes.
+     - **Final Evaluation**: `.Resolve()` computes `(Base + FlatModifier) * (1.0 + IncreasedPercent)`.
+   - **`Ability` (`closed record`)**: `PrimaryAbility` (holds `CastTimeSeconds`, `CooldownSeconds`, and `SubAbilities`) vs. `DependentAbility` (triggered child sub-ability).
+   - **Domain Unions**: `AbilityNature` (`ElementalNature`, `PhysicalNature`, `SoftControlNature`, `HardControlNature`, `BoonNature`, `DefensiveNature`, `HealingNature`), `AbilityTargeting`, `AbilityDelivery`, `AbilityEffect`.
+   - **`CharacterAttribute` (`union`)**: Categorizes `PrimaryAttribute` (`Power`, `Precision`, `Toughness`, `Vitality`), `SecondaryAttribute` (`Ferocity`, `ConditionDamage`, `HealingPower`, `Expertise`, `Concentration`), and `SpecialAttribute` (`CriticalChance`, `CriticalDamage`, `BoonDuration`, `ConditionDuration`, `Defense`, `WeaponStrength`), each wrapping `StatValue<double>` and aggregating via `+`.
 
-## Key Architectural Boundary
-- `SpellTalentSystem.Items` **does not** resolve final `AttributeSheet` values. `EquipmentAggregator.Aggregate(equippedItems, setDefinitions)` outputs aggregated `CharacterAttribute` buckets (`AggregatedAttributes`) and `GrantedTalents` (`ImmutableArray<Talent>`).
-- These streams merge with the upcoming **Boon / Condition System** before final `AttributeSheet` calculation and combat resolution.
+2. **`SpellTalentSystem.Pipeline`**:
+   - **`Talent`**: `(Id, Name, Priority, Func<Ability, Ability> Apply)`. Lower `Priority` runs first (e.g., `0` for transformative nature conversions like Frost -> Fire; `100` for commutative numeric enrichments).
+   - **`AbilityTalentPipeline` & `DynamicData` Extensions**: `.ResolveWithTalents(IObservable<IChangeSet<Talent, string>>)` reactively applies ordered talents and flattens each ability tree into `ImmutableArray<ResolvedAbilityNode>` with ancestor-path cycle detection (allowing shared sub-ability IDs across distinct sibling branches).
 
-## Planned Next Milestones
-1. **Equipment Loadout & Category-Driven Validation (`SpellTalentSystem.Items`)**: `EquipmentLoadout` (slot assignment, weapon swaps, two-hand vs. main/off-hand occupancy, socket insertion rules derived from `ItemCategory` + `Lifecycle.RequiredLevel`).
-2. **Boon & Condition System (`SpellTalentSystem.Boons`)**: Stackable / intensity-based temporary effects emitting `(ImmutableArray<CharacterAttribute>, ImmutableArray<Talent>)` to merge with `EquipmentAggregator`.
-3. **Reactive `AttributeSheet` + Cast-Time Conditionals (`ResolveForCast` & `.Watch(...)`)**: Combine Equipment + Boons + Base Stats into reactive `AttributeSheet`, supporting caster-state predicates (e.g., *Scholar* +5% damage while HP > 90%) and ICD threshold triggers.
-4. **Combat Resolution (`SpellTalentSystem.Combat`)**: Hit, crit, strike/condition damage, healing, and boon application using resolved `AttributeSheet` + talent-enhanced `Ability` trees.
+3. **`SpellTalentSystem.Attributes`**:
+   - **`AttributeSheet`**: Stores un-collapsed `StatValue<double>` buckets per `AttributeKind` and evaluates derived combat stats (`EffectivePower`, `EffectiveCritChance`, `EffectiveCritDamage`, `EffectiveBoonDuration`, `EffectiveConditionDuration`, `EffectiveArmor`, `EffectiveMaxHealth`).
+
+4. **`SpellTalentSystem.Items`** *(Refactored)*:
+   - **`GameItem` (`closed record`)**: Shared root carrying only `Id`, `Name`, `Description`, and `ItemLifecycle` (`Rarity`, `Binding`, `IsBound`, `VendorCopper` — `ItemLevel` removed).
+   - **`Gear` (`sealed record`)**: Equippable weapons, armor, trinkets, and `Relic`s (`GearCategory`). Holds `RequiredLevel`, `SetId`, `BaseEffects`, and explicit typed `ImmutableArray<UpgradeSlot>` (`WithSlot`, `WithSlotted`, `CollectEffects`).
+   - **`GearUpgrade` (`sealed record`)**: Socketable enhancements (`UpgradeCategory`: `StatAffix`, `Sigil`, `Rune`, `Infusion`, `Gem`, `Enchantment`) carrying `CharacterAttribute` and/or `GrantedTalent` effects, plus optional nested `UpgradeSlots` restricted to `UpgradeKind.StatAffix`.
+   - **`ConsumableItem` (`sealed record`)**: Materialized combat/buff items (`ConsumableCategory`: `Potion`, `Food`, `UtilityOil`, `Scroll`) with `UsableAbility`, `Effects`, `SpoilDuration`, and `Charges`.
+   - **`SimpleItem` (`sealed record`)**: Non-equippable inventory items (`SimpleCategory`: `CraftingMaterial`, `Trophy`, `QuestItem`, `SalvageKit`, `CurrencyToken`) with `MaxStackSize`.
+   - **`UpgradeSlot` (`sealed record`)**: Explicit `(UpgradeKind AcceptedKind, GearUpgrade? Slotted)` enforcing socket compatibility at construction/slotting time.
+   - **`EquipmentAggregator`**: Recursively traverses equipped `Gear`, slotted `GearUpgrade`s, nested `StatAffix`es, and `ItemSetDefinition` tier thresholds to produce `AggregatedEquipment` (`AggregatedAttributes`, `GrantedTalents`, `ActiveSetPieceCounts`).
+
+5. **`SpellTalentSystem.Showcase` & `SpellTalentSystem.Tests`**:
+   - Interactive Blazor Server demo (`Home.razor`) showcasing real-time `DynamicData` ability tree diffs.
+   - Full xUnit v3 test coverage across `Abilities`, `Pipeline`, `Attributes`, and `Items` (all passing).
+
+---
+
+## Next Planned Milestones
+1. **Reactive Character Loadout Pipeline**: Connect `SourceCache<Gear, string>` + `SourceCache<Talent, string>` + base `AttributeSheet` + base `PrimaryAbility` trees so equipping/unequipping gear reactively updates both `AttributeSheet` and `ResolvedAbilityNode` trees (via `GrantedTalents` and `ConsumableItem` `UsableAbility`).
+2. **Combat Formula Resolution**: Evaluate a `ResolvedAbilityNode` against caster and target `AttributeSheet`s (direct damage, critical strikes, condition ticks, boon/condition durations).
+3. **Database Persistence DTOs**: Lightweight serializable snapshots for `Gear` and its `UpgradeSlots`.

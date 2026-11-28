@@ -1,30 +1,76 @@
-# ItemCategory DU-of-DUs Hierarchy Diagram
+# Domain-Scoped Item Category Unions
 
 ```text
-                                 ┌─────────────────────────┐
-                                 │   union ItemCategory    │
-                                 │  ("What is this item?") │
-                                 └────────────┬────────────┘
-                                              │
-     ┌──────────────┬──────────────┬──────────┴───┬──────────────┬──────────────┬──────────────┐
-     ▼              ▼              ▼              ▼              ▼              ▼              ▼
-┌──────────┐  ┌──────────┐  ┌───────────┐  ┌───────────┐  ┌────────────┐  ┌──────────┐  ┌──────────┐
-│  Weapon  │  │  Armor   │  │  Trinket  │  │  Upgrade  │  │ Consumable │  │ Material │  │   Misc   │
-│ Category │  │ Category │  │ Category  │  │ Category  │  │  Category  │  │ Category │  │ Category │
-└────┬─────┘  └────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬──────┘  └────┬─────┘  └────┬─────┘
-     │             │              │              │              │              │             │
-     ├─ Sword      ├─ Weight:     ├─ Amulet      ├─ StatAffix   ├─ Potion      ├─ Ore        ├─ QuestToken
-     ├─ Greatsword │  Light/Med/  ├─ Ring        ├─ Sigil       ├─ Food        ├─ Ingot      ├─ SalvageKit
-     ├─ Dagger     │  HeavyArmor  ├─ Accessory   ├─ Rune        ├─ UtilityOil  ├─ Wood       ├─ Trophy
-     ├─ Axe        └─ Piece:      └─ Backpiece   ├─ Infusion    └─ Scroll      ├─ Plank      └─ ContainerBag
-     ├─ Mace          Helm,                      ├─ Gem                        ├─ Leather
-     ├─ Hammer        Shoulders,                 └─ Enchantment                ├─ Cloth
-     ├─ Staff         Chestpiece,                                              ├─ Herb
-     ├─ Scepter       Gloves,                                                  └─ Reagent
-     ├─ Focus         Leggings,
-     ├─ Shield        Boots
-     ├─ Longbow
-     ├─ Shortbow
-     ├─ Pistol
-     └─ Rifle
+         ┌───────────────────────────────────────────────────────────────────────┐
+         │                   Domain-Scoped Category Unions                       │
+         └───────────────────────────────────┬───────────────────────────────────┘
+                                             │
+        ┌────────────────────┬───────────────┴───────┬────────────────────┐
+        ▼                    ▼                       ▼                    ▼
+┌───────────────┐    ┌───────────────┐       ┌───────────────┐    ┌───────────────┐
+│ GearCategory  │    │UpgradeCategory│       │  Consumable   │    │SimpleCategory │
+│    (Gear)     │    │ (GearUpgrade) │       │   Category    │    │ (SimpleItem)  │
+└───────┬───────┘    └───────┬───────┘       └───────┬───────┘    └───────┬───────┘
+        │                    │                       │                    │
+        ├─ WeaponCategory    ├─ StatAffix            ├─ Potion            ├─ CraftingMaterial
+        │  (Sword..Rifle)    ├─ Sigil                ├─ Food              ├─ Trophy
+        ├─ ArmorCategory     ├─ Rune                 ├─ UtilityOil        ├─ QuestItem
+        │  (Weight + Piece)  ├─ Infusion             └─ Scroll            ├─ SalvageKit
+        └─ TrinketCategory   ├─ Gem                                       └─ CurrencyToken
+           ├─ Amulet         └─ Enchantment
+           ├─ Ring
+           ├─ Accessory
+           ├─ Backpiece
+           └─ Relic
+```
+
+```mermaid
+classDiagram
+    direction LR
+
+    class GearCategory {
+        <<union>>
+        +WeaponCategory
+        +ArmorCategory
+        +TrinketCategory
+    }
+
+    class TrinketCategory {
+        <<union>>
+        +Amulet
+        +Ring
+        +Accessory
+        +Backpiece
+        +Relic
+    }
+
+    class UpgradeCategory {
+        <<union>>
+        +StatAffix
+        +Sigil
+        +Rune
+        +Infusion
+        +Gem
+        +Enchantment
+        +UpgradeKind Kind
+    }
+
+    class ConsumableCategory {
+        <<union>>
+        +Potion
+        +Food
+        +UtilityOil
+        +Scroll
+    }
+
+    class SimpleCategory {
+        <<union>>
+        +CraftingMaterial
+        +Trophy
+        +QuestItem
+        +SalvageKit
+        +CurrencyToken
+    }
+
+    GearCategory --> TrinketCategory
 ```
